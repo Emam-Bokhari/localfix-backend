@@ -2,11 +2,6 @@ import { model, Schema, Types } from "mongoose";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import {
-  MAINTENANCE_STATUS,
-  PAYMENT_STATUS,
-} from "../maintenance/maintenance.constant";
-import { Maintenance } from "../maintenance/maintenance.model";
-import {
   ReviewModel,
   TContractorReviewSummary,
   TReview,
@@ -17,18 +12,18 @@ const reviewSchema = new Schema<TReview, ReviewModel>(
     contractor: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Contractor ID is required"],
+      required: [true, "Professional ID is required"],
     },
     tenant: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Tenant ID is required"],
+      required: [true, "Homeowner ID is required"],
     },
     maintenance: {
       type: Schema.Types.ObjectId,
       ref: "Maintenance",
-      required: [true, "Maintenance ID is required"],
-      unique: true, // Akta kaj a akbar e review/rating dite parbe
+      required: [true, "Job ID is required"],
+      unique: true,
     },
     rating: {
       type: Number,
@@ -37,7 +32,6 @@ const reviewSchema = new Schema<TReview, ReviewModel>(
       max: [5, "Rating cannot exceed 5"],
       validate: {
         validator: function (val: number) {
-          // Kebol 1, 2, 3, 4, 5 star e dite parbe, float hobe na
           return Number.isInteger(val) && val >= 1 && val <= 5;
         },
         message:
@@ -47,7 +41,7 @@ const reviewSchema = new Schema<TReview, ReviewModel>(
     feedback: {
       type: String,
       trim: true,
-      default: "", // Feedback daoua optional
+      default: "",
     },
   },
   {
@@ -56,12 +50,10 @@ const reviewSchema = new Schema<TReview, ReviewModel>(
   },
 );
 
-// Indexes
 reviewSchema.index({ maintenance: 1 }, { unique: true });
 reviewSchema.index({ contractor: 1, createdAt: -1 });
 reviewSchema.index({ tenant: 1 });
 
-// Validation: Nije k nije review/rating dite parbe na
 reviewSchema.pre("validate", function (next) {
   if (
     this.tenant &&
@@ -78,76 +70,6 @@ reviewSchema.pre("validate", function (next) {
   next();
 });
 
-// Validation: Kaj complete hoile e abong payment complete hoile e kebol review/rating dite parbe
-reviewSchema.pre("save", async function (next) {
-  if (this.isNew || this.isModified("maintenance")) {
-    const maintenanceDoc = await Maintenance.findById(this.maintenance);
-
-    if (!maintenanceDoc) {
-      return next(
-        new ApiError(StatusCodes.NOT_FOUND, "Maintenance request not found"),
-      );
-    }
-
-    if (maintenanceDoc.status !== MAINTENANCE_STATUS.COMPLETED) {
-      return next(
-        new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "Review can only be submitted once the maintenance job is completed",
-        ),
-      );
-    }
-
-    if (maintenanceDoc.paymentStatus !== PAYMENT_STATUS.PAID) {
-      return next(
-        new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "Review can only be submitted once the maintenance job payment is completed",
-        ),
-      );
-    }
-
-    if (!maintenanceDoc.contractor) {
-      return next(
-        new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "This maintenance job does not have an assigned contractor",
-        ),
-      );
-    }
-
-    if (
-      maintenanceDoc.contractor.toString() !== this.contractor.toString()
-    ) {
-      return next(
-        new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "The contractor does not match the contractor assigned to this maintenance job",
-        ),
-      );
-    }
-
-    const jobTenantId = maintenanceDoc.tenant
-      ? maintenanceDoc.tenant.toString()
-      : maintenanceDoc.requestedBy?.toString();
-
-    if (
-      jobTenantId &&
-      jobTenantId !== this.tenant.toString()
-    ) {
-      return next(
-        new ApiError(
-          StatusCodes.BAD_REQUEST,
-          "Only the tenant associated with this maintenance job can submit a review",
-        ),
-      );
-    }
-  }
-
-  next();
-});
-
-// Static method to calculate contractor average rating (Float), total reviews and star breakdown
 reviewSchema.statics.calculateAverageRating = async function (
   contractorId: Types.ObjectId | string,
 ): Promise<TContractorReviewSummary> {
@@ -180,7 +102,6 @@ reviewSchema.statics.calculateAverageRating = async function (
     const rawAverage = stats[0].averageRating ?? 0;
     return {
       contractor: targetContractorId,
-      // Average rating e float thakbe (e.g. 4.8)
       averageRating: parseFloat(rawAverage.toFixed(1)),
       totalReviews: stats[0].totalReviews,
       ratingDistribution: {

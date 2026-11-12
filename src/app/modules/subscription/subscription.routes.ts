@@ -7,28 +7,35 @@ import { SubscriptionValidation } from "./subscription.validation";
 
 const router = express.Router();
 
+const subscriptionRoles = [
+  USER_ROLES.HOME_OWNER,
+  USER_ROLES.PROFESSIONAL,
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPER_ADMIN,
+];
+
 router.post(
   "/checkout-session",
-  auth(USER_ROLES.LANDLORD, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  auth(...subscriptionRoles),
   validateRequest(SubscriptionValidation.createCheckoutSessionZodSchema),
   SubscriptionController.createCheckoutSession,
 );
 
 router.post(
   "/customer-portal",
-  auth(USER_ROLES.LANDLORD, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  auth(...subscriptionRoles),
   SubscriptionController.createCustomerPortalSession,
 );
 
 router.get(
   "/my-subscription",
-  auth(USER_ROLES.LANDLORD, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  auth(...subscriptionRoles),
   SubscriptionController.getMySubscription,
 );
 
 router.post(
   "/cancel",
-  auth(USER_ROLES.LANDLORD, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+  auth(...subscriptionRoles),
   validateRequest(SubscriptionValidation.cancelSubscriptionZodSchema),
   SubscriptionController.cancelSubscription,
 );

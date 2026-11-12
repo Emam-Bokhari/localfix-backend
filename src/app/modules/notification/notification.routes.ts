@@ -1,16 +1,13 @@
 import express from "express";
 import auth from "../../middlewares/auth";
-import validateRequest from "../../middlewares/validateRequest";
 import { USER_ROLES } from "../../../enums/user";
 import { NotificationController } from "./notification.controller";
-import { BroadcastValidation } from "../broadcast/broadcast.validation";
-import { BroadcastController } from "../broadcast/broadcast.controller";
+
 const router = express.Router();
 
 const allRoles = [
-  USER_ROLES.LANDLORD,
-  USER_ROLES.TENANT,
-  USER_ROLES.CONTRACTOR,
+  USER_ROLES.HOME_OWNER,
+  USER_ROLES.PROFESSIONAL,
   USER_ROLES.ADMIN,
   USER_ROLES.SUPER_ADMIN,
 ];
@@ -79,36 +76,6 @@ router.patch(
   auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
   NotificationController.adminReadSingleNotification,
 );
-
-// broadcast push notifications to landlords
-router.get(
-  "/broadcast/landlords",
-  auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-  BroadcastController.getLandlordsList,
-);
-
-router
-  .route("/broadcast")
-  .post(
-    auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-    validateRequest(BroadcastValidation.sendBroadcastZodSchema),
-    BroadcastController.sendBroadcast,
-  )
-  .get(
-    auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-    BroadcastController.getBroadcasts,
-  );
-
-router
-  .route("/broadcast/:id")
-  .get(
-    auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-    BroadcastController.getSingleBroadcast,
-  )
-  .delete(
-    auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-    BroadcastController.deleteBroadcast,
-  );
 
 // user single routes
 router

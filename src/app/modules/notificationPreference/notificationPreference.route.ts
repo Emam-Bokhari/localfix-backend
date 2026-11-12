@@ -8,9 +8,8 @@ import { NotificationPreferenceValidation } from "./notificationPreference.valid
 const router = express.Router();
 
 const authorizedRoles = [
-  USER_ROLES.LANDLORD,
-  USER_ROLES.TENANT,
-  USER_ROLES.CONTRACTOR,
+  USER_ROLES.HOME_OWNER,
+  USER_ROLES.PROFESSIONAL,
   USER_ROLES.ADMIN,
   USER_ROLES.SUPER_ADMIN,
 ];

@@ -18,7 +18,7 @@ const faqSchema = new Schema<TFaq>(
     role: {
       type: String,
       enum: Object.values(USER_ROLES),
-      default: USER_ROLES.LANDLORD,
+      default: USER_ROLES.HOME_OWNER,
       required: true,
       trim: true,
       lowercase: true,

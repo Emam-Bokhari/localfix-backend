@@ -6,7 +6,6 @@ import colors from "colors";
 import { socketHelper } from "./helpers/socketHelper";
 import { Server } from "socket.io";
 import seedSuperAdmin from "./DB";
-import { initSmartReminderCron } from "./app/modules/smartReminder/smartReminder.cron";
 
 //uncaught exception
 process.on("uncaughtException", (error) => {
@@ -47,11 +46,6 @@ async function main() {
     socketHelper.socket(io);
     //@ts-ignore
     global.io = io;
-
-    // Initialize Smart Reminder Cron scheduler
-    if (config.start_cron === "true") {
-      initSmartReminderCron();
-    }
   } catch (error) {
     errorLogger.error(colors.red("🤢 Failed to connect Database"));
   }

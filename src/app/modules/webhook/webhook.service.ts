@@ -2,8 +2,6 @@ import { StatusCodes } from "http-status-codes";
 import Stripe from "stripe";
 import config from "../../../config";
 import ApiError from "../../../errors/ApiErrors";
-import { MaintenanceService } from "../maintenance/maintenance.service";
-import { FinanceService } from "../finance/finance.service";
 import { SubscriptionService } from "../subscription/subscription.service";
 
 const handleStripeWebhookIntoDB = async (
@@ -50,18 +48,7 @@ const handleStripeWebhookIntoDB = async (
       const session = event.data.object as Stripe.Checkout.Session;
       const paymentType = session.metadata?.paymentType;
 
-      if (paymentType === "maintenance" || session.metadata?.maintenanceId) {
-        await MaintenanceService.handleMaintenancePaymentSuccess(session);
-      } else if (
-        paymentType === "finance" ||
-        paymentType === "rent" ||
-        session.metadata?.billId
-      ) {
-        await FinanceService.handleStripePaymentSuccess(session);
-      } else if (
-        paymentType === "subscription" ||
-        session.mode === "subscription"
-      ) {
+      if (paymentType === "subscription" || session.mode === "subscription") {
         await SubscriptionService.handleSubscriptionCheckoutCompleted(session);
       }
       break;

@@ -7,8 +7,8 @@ import { Package } from "../package/package.model";
 import { User } from "../user/user.model";
 import { ISubscription } from "./subscription.interface";
 import { Subscription } from "./subscription.model";
-import { Property } from "../property/property.model";
-import { Flat } from "../flat/flat.model";
+
+
 import { sendNotifications } from "../../../helpers/notificationsHelper";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import { getCurrencyCode } from "../../../helpers/currencyHelper";
@@ -201,15 +201,8 @@ const getMySubscriptionFromDB = async (userId: string) => {
     .populate("packageId")
     .sort({ createdAt: -1 });
 
-  const currentPropertiesCount = await Property.countDocuments({
-    landlord: userId,
-    isDeleted: { $ne: true },
-  });
-
-  const currentFlatsCount = await Flat.countDocuments({
-    landlord: userId,
-    isDeleted: { $ne: true },
-  });
+  const currentPropertiesCount = 0;
+  const currentFlatsCount = 0;
 
   if (!subscription) {
     return {
@@ -292,7 +285,7 @@ const cancelSubscription = async (
 };
 
 // ==========================================
-// 🛡️ WEBHOOK EVENT HANDLERS (100% Secure)
+// ≡ƒ¢í∩╕Å WEBHOOK EVENT HANDLERS (100% Secure)
 // ==========================================
 
 // A. Handle checkout.session.completed for subscription
@@ -358,7 +351,7 @@ const handleSubscriptionCheckoutCompleted = async (
   // Send in-app notification to landlord
   await sendNotifications({
     receiver: userId as any,
-    title: isTrial ? "🎉 Free Trial Activated!" : "🎉 Subscription Activated!",
+    title: isTrial ? "≡ƒÄë Free Trial Activated!" : "≡ƒÄë Subscription Activated!",
     text: isTrial
       ? `Your free trial is now active until ${trialEndsAt?.toLocaleDateString()}. Enjoy full access!`
       : "Your subscription payment was successful. Welcome aboard!",
@@ -418,7 +411,7 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice) => {
     if (wasTrial && subObj.status === "active") {
       await sendNotifications({
         receiver: subscription.userId as any,
-        title: "🎉 Trial Converted to Active Subscription",
+        title: "≡ƒÄë Trial Converted to Active Subscription",
         text: `Your free trial has ended and your subscription is now active. Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}`,
         type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
       });
@@ -428,7 +421,7 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice) => {
     // Send notification for successful recurring renewal (e.g., subscription_cycle)
     await sendNotifications({
       receiver: subscription.userId as any,
-      title: "✅ Subscription Renewed",
+      title: "Γ£à Subscription Renewed",
       text: `Your subscription has been renewed successfully. Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}`,
       type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
     });
@@ -455,7 +448,7 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice) => {
 
     await sendNotifications({
       receiver: subscription.userId as any,
-      title: "⚠️ Subscription Payment Failed",
+      title: "ΓÜá∩╕Å Subscription Payment Failed",
       text: "Payment for your subscription renewal could not be processed. Please update your billing method.",
       type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
     });
@@ -529,7 +522,7 @@ const handleTrialWillEnd = async (stripeSubscription: Stripe.Subscription) => {
 
     await sendNotifications({
       receiver: subscription.userId as any,
-      title: "⏳ Your Free Trial Ends in 3 Days",
+      title: "ΓÅ│ Your Free Trial Ends in 3 Days",
       text: `Your free trial will end on ${trialEnd?.toLocaleDateString()}. Your card will be billed automatically unless canceled.`,
       type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
     });

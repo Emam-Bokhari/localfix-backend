@@ -29,7 +29,7 @@ const formatRoleNotificationPreferences = (
   let settings: Array<{ key: string; label: string; value: boolean }> = [];
 
   switch (normalizedRole) {
-    case USER_ROLES.LANDLORD:
+    case USER_ROLES.HOME_OWNER:
       rolePreferences = {
         rentReminders: safePref.rentReminders,
         maintenanceUpdates: safePref.maintenanceUpdates,
@@ -54,7 +54,7 @@ const formatRoleNotificationPreferences = (
       ];
       break;
 
-    case USER_ROLES.TENANT:
+    case "tenant":
       rolePreferences = {
         maintenanceUpdates: safePref.maintenanceUpdates,
         newMessages: safePref.newMessages,
@@ -79,7 +79,7 @@ const formatRoleNotificationPreferences = (
       ];
       break;
 
-    case USER_ROLES.CONTRACTOR:
+    case USER_ROLES.PROFESSIONAL:
       rolePreferences = {
         jobUpdates: safePref.jobUpdates,
         newMessages: safePref.newMessages,

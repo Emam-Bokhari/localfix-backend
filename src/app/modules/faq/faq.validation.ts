@@ -24,7 +24,7 @@ const createFaqZodSchema = z.object({
     answer: z
       .string({ required_error: "Answer is required" })
       .min(1, "Answer cannot be empty"),
-    role: roleSchema.optional().default(USER_ROLES.LANDLORD),
+    role: roleSchema.optional().default(USER_ROLES.HOME_OWNER),
   }),
 });
 
