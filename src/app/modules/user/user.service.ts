@@ -129,6 +129,7 @@ const createUserToDB = async (payload: ISignUpData) => {
 const getMyProfileFromDB = async (userId: string) => {
   const result = await User.findById(userId)
     .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
     .select("-password -authentication");
 
   if (!result) {
@@ -291,6 +292,14 @@ const updateProfileToDB = async (
         ),
       );
     }
+
+    if (Array.isArray(updatePayload.projectPhotos)) {
+      for (const photo of updatePayload.projectPhotos) {
+        if (photo?.category) {
+          await validateCategoryExists(photo.category.toString());
+        }
+      }
+    }
   } else {
     delete updatePayload.businessHours;
     delete updatePayload.acceptedPayments;
@@ -302,6 +311,7 @@ const updateProfileToDB = async (
     new: true,
   })
     .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
     .select("-password -authentication");
 
   return updateDoc;
@@ -314,6 +324,7 @@ const getUsersFromDB = async (query: Record<string, unknown>) => {
 
   const baseQuery = User.find(roleFilter)
     .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
     .select("-password -authentication -deviceToken");
 
   const queryBuilder = new QueryBuilder<IUser>(baseQuery, query)
@@ -337,6 +348,7 @@ const getUsersFromDB = async (query: Record<string, unknown>) => {
 const getUserByIdFromDB = async (id: string) => {
   const user = await User.findById(id)
     .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
     .select("-password -authentication -deviceToken");
 
   if (!user) {
@@ -487,15 +499,18 @@ const addProjectPhotoToDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "Project photo image is required");
   }
 
+  await validateCategoryExists(payload.category.toString());
+
   user.projectPhotos = user.projectPhotos || [];
   user.projectPhotos.push({
     image: imageUrl,
     title: payload.title.trim(),
-    category: payload.category.trim(),
+    category: payload.category as any,
     createdAt: new Date(),
   });
 
   await user.save();
+  await user.populate("projectPhotos.category", "name icon coverImage");
   return user.projectPhotos;
 };
 
@@ -538,10 +553,12 @@ const updateProjectPhotoToDB = async (
     photo.title = payload.title.trim();
   }
   if (payload.category !== undefined) {
-    photo.category = payload.category.trim();
+    await validateCategoryExists(payload.category.toString());
+    photo.category = payload.category as any;
   }
 
   await user.save();
+  await user.populate("projectPhotos.category", "name icon coverImage");
   return user.projectPhotos;
 };
 
@@ -569,6 +586,7 @@ const deleteProjectPhotoFromDB = async (userId: string, photoId: string) => {
   }
 
   await user.save();
+  await user.populate("projectPhotos.category", "name icon coverImage");
   return user.projectPhotos;
 };
 

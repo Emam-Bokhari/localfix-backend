@@ -71,7 +71,7 @@ const businessHoursZodSchema = z
 const projectPhotoItemZodSchema = z.object({
   image: z.string().trim().min(1, "Project photo image is required"),
   title: z.string().trim().min(1, "Project photo title is required"),
-  category: z.string().trim().min(1, "Project photo category is required"),
+  category: z.string().regex(objectIdRegex, "Invalid category ID"),
 });
 
 const optionalUserFields = {
@@ -178,9 +178,8 @@ const addProjectPhotoZodSchema = z.object({
       .trim()
       .min(1, "Title cannot be empty"),
     category: z
-      .string({ required_error: "Category is required" })
-      .trim()
-      .min(1, "Category cannot be empty"),
+      .string({ required_error: "Category ID is required" })
+      .regex(objectIdRegex, "Invalid category ID"),
   }),
 });
 
@@ -189,7 +188,7 @@ const updateProjectPhotoZodSchema = z.object({
     image: z.string().trim().optional(),
     projectPhoto: z.string().trim().optional(),
     title: z.string().trim().min(1, "Title cannot be empty").optional(),
-    category: z.string().trim().min(1, "Category cannot be empty").optional(),
+    category: z.string().regex(objectIdRegex, "Invalid category ID").optional(),
   }),
 });
 

@@ -25,7 +25,11 @@ const projectPhotoSchema = new Schema(
   {
     image: { type: String, required: true, trim: true },
     title: { type: String, required: true, trim: true },
-    category: { type: String, required: true, trim: true },
+    category: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: true },

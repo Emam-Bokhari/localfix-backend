@@ -54,7 +54,7 @@ export type TProjectPhoto = {
   _id?: Types.ObjectId;
   image: string;
   title: string;
-  category: string;
+  category: Types.ObjectId;
   createdAt?: Date;
 };
 
