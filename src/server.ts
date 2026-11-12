@@ -47,7 +47,7 @@ async function main() {
     //@ts-ignore
     global.io = io;
   } catch (error) {
-    errorLogger.error(colors.red("🤢 Failed to connect Database"));
+    errorLogger.error(colors.red("🤢 Failed to connect Database"), error);
   }
 
   //handle unhandledRejection
