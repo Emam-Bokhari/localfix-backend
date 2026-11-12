@@ -24,7 +24,38 @@ export type TTradeLicense = {
 export type TLiabilityInsurance = {
   carrier?: string;
   coverage?: string;
+  expires?: string;
   certificateUrl?: string;
+  isVerified?: boolean;
+};
+
+export type TBusinessDayHours = {
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+};
+
+export type TBusinessHours = {
+  mode?: "all_days" | "customize";
+  allDays?: TBusinessDayHours;
+  days?: {
+    monday?: TBusinessDayHours;
+    tuesday?: TBusinessDayHours;
+    wednesday?: TBusinessDayHours;
+    thursday?: TBusinessDayHours;
+    friday?: TBusinessDayHours;
+    saturday?: TBusinessDayHours;
+    sunday?: TBusinessDayHours;
+  };
+  emergencyDispatchAvailable?: boolean;
+};
+
+export type TProjectPhoto = {
+  _id?: Types.ObjectId;
+  image: string;
+  title: string;
+  category: string;
+  createdAt?: Date;
 };
 
 export type TBackgroundCheck = {
@@ -67,6 +98,7 @@ export type IUser = {
   state?: string;
   city?: string;
   zipCode?: string;
+  streetAddress?: string;
   location?: {
     type: "Point";
     coordinates: [number, number]; // [longitude, latitude]
@@ -78,6 +110,9 @@ export type IUser = {
   tradeLicense?: TTradeLicense;
   liabilityInsurance?: TLiabilityInsurance;
   backgroundCheck?: TBackgroundCheck;
+  businessHours?: TBusinessHours;
+  acceptedPayments?: string[];
+  projectPhotos?: TProjectPhoto[];
   authentication?: {
     isResetPassword?: boolean;
     oneTimeCode?: number | null;

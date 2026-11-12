@@ -52,7 +52,8 @@ const resolveMode = (
     fieldName === "otherDocuments" ||
     fieldName === "documents" ||
     fieldName === "inspectionPhotos" ||
-    fieldName === "itemPhotos"
+    fieldName === "itemPhotos" ||
+    fieldName === "projectPhotos"
   ) {
     return "multiple";
   }
@@ -96,6 +97,10 @@ export const parseFileData = (...fields: FieldInput[]) => {
         "roomChecklist",
         "tradeLicense",
         "liabilityInsurance",
+        "businessHours",
+        "acceptedPayments",
+        "projectPhotos",
+        "location",
       ];
       for (const f of jsonFieldsToParse) {
         if (typeof req.body?.[f] === "string") {
@@ -290,6 +295,7 @@ export const parseFileData = (...fields: FieldInput[]) => {
           fieldName === "documents" ||
           fieldName === "inspectionPhotos" ||
           fieldName === "itemPhotos" ||
+    fieldName === "projectPhotos" ||
           mode === "multiple"
         ) {
           if (typeof parsedBody[fieldName] === "string") {

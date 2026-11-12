@@ -12,6 +12,25 @@ import bcrypt from "bcrypt";
 import config from "../../../config";
 import { softDeletePlugin } from "../../../DB/plugins/softDeletePlugin";
 
+const businessDayHoursSchema = new Schema(
+  {
+    isOpen: { type: Boolean, default: true },
+    openTime: { type: String, default: "8:00 AM", trim: true },
+    closeTime: { type: String, default: "6:00 PM", trim: true },
+  },
+  { _id: false },
+);
+
+const projectPhotoSchema = new Schema(
+  {
+    image: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    category: { type: String, required: true, trim: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const userSchema = new Schema<IUser, IUserModel>(
   {
     name: {
@@ -126,6 +145,11 @@ const userSchema = new Schema<IUser, IUserModel>(
       required: false,
       trim: true,
     },
+    streetAddress: {
+      type: String,
+      required: false,
+      trim: true,
+    },
     companyName: {
       type: String,
       required: false,
@@ -158,10 +182,54 @@ const userSchema = new Schema<IUser, IUserModel>(
         type: String,
         trim: true,
       },
+      expires: {
+        type: String,
+        trim: true,
+      },
       certificateUrl: {
         type: String,
         default: "",
       },
+      isVerified: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    businessHours: {
+      mode: {
+        type: String,
+        enum: ["all_days", "customize"],
+        default: "all_days",
+      },
+      allDays: {
+        type: businessDayHoursSchema,
+        default: () => ({
+          isOpen: true,
+          openTime: "8:00 AM",
+          closeTime: "6:00 PM",
+        }),
+      },
+      days: {
+        monday: { type: businessDayHoursSchema, default: () => ({}) },
+        tuesday: { type: businessDayHoursSchema, default: () => ({}) },
+        wednesday: { type: businessDayHoursSchema, default: () => ({}) },
+        thursday: { type: businessDayHoursSchema, default: () => ({}) },
+        friday: { type: businessDayHoursSchema, default: () => ({}) },
+        saturday: { type: businessDayHoursSchema, default: () => ({}) },
+        sunday: { type: businessDayHoursSchema, default: () => ({}) },
+      },
+      emergencyDispatchAvailable: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    acceptedPayments: {
+      type: [String],
+      default: [],
+    },
+    projectPhotos: {
+      type: [projectPhotoSchema],
+      default: [],
     },
     backgroundCheck: {
       consentAccepted: {

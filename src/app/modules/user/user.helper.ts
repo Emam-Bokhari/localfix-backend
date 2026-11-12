@@ -1,7 +1,12 @@
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import { Category } from "../category/category.model";
-import { TLiabilityInsurance, TTradeLicense } from "./user.interface";
+import {
+  TBusinessDayHours,
+  TBusinessHours,
+  TLiabilityInsurance,
+  TTradeLicense,
+} from "./user.interface";
 
 /**
  * Parse boolean values sent via JSON or multipart/form-data strings.
@@ -97,20 +102,81 @@ export const normalizeLiabilityInsurance = (
   )
     .toString()
     .trim();
+  const expires = (
+    nested.expires ||
+    nested.expiresAt ||
+    payload.insuranceExpires ||
+    payload.expires ||
+    payload.expiresAt ||
+    ""
+  )
+    .toString()
+    .trim();
   const certificateUrl =
     nested.certificateUrl ||
     payload.coiCertificate ||
     payload.insuranceCertificate ||
     "";
 
-  if (!carrier && !coverage && !certificateUrl) {
+  if (!carrier && !coverage && !expires && !certificateUrl) {
     return undefined;
   }
 
   return {
     ...(carrier && { carrier }),
     ...(coverage && { coverage }),
+    ...(expires && { expires }),
     ...(certificateUrl && { certificateUrl }),
+  };
+};
+
+const DAY_KEYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+const mergeDayHours = (
+  existing?: Partial<TBusinessDayHours>,
+  incoming?: Partial<TBusinessDayHours>,
+): TBusinessDayHours => ({
+  isOpen:
+    incoming?.isOpen !== undefined
+      ? parseBooleanFlag(incoming.isOpen)
+      : (existing?.isOpen ?? true),
+  openTime: incoming?.openTime ?? existing?.openTime ?? "8:00 AM",
+  closeTime: incoming?.closeTime ?? existing?.closeTime ?? "6:00 PM",
+});
+
+/**
+ * Merge incoming businessHours updates with existing user businessHours.
+ */
+export const mergeBusinessHours = (
+  existing: TBusinessHours | undefined,
+  incoming: Record<string, any> | undefined,
+  emergencyDispatchTopLevel?: unknown,
+): TBusinessHours => {
+  const days: NonNullable<TBusinessHours["days"]> = {};
+  for (const day of DAY_KEYS) {
+    days[day] = mergeDayHours(existing?.days?.[day], incoming?.days?.[day]);
+  }
+
+  const emergencyDispatchAvailable =
+    emergencyDispatchTopLevel !== undefined
+      ? parseBooleanFlag(emergencyDispatchTopLevel)
+      : incoming?.emergencyDispatchAvailable !== undefined
+        ? parseBooleanFlag(incoming.emergencyDispatchAvailable)
+        : (existing?.emergencyDispatchAvailable ?? false);
+
+  return {
+    mode: incoming?.mode ?? existing?.mode ?? "all_days",
+    allDays: mergeDayHours(existing?.allDays, incoming?.allDays),
+    days,
+    emergencyDispatchAvailable,
   };
 };
 

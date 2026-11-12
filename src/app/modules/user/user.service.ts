@@ -11,6 +11,7 @@ import { USER_SEARCHABLE_FIELDS } from "./user.constant";
 import { AuthService } from "../auth/auth.service";
 import { ISignUpData } from "../../../types/auth";
 import {
+  mergeBusinessHours,
   normalizeLiabilityInsurance,
   normalizeTradeLicense,
   parseServiceRadius,
@@ -167,6 +168,33 @@ const updateProfileToDB = async (
   }
   delete updatePayload.businessName;
 
+  // Sync streetAddress <-> location.address while preserving coordinates
+  const incomingStreetAddress =
+    updatePayload.streetAddress?.trim() ||
+    updatePayload.address?.trim() ||
+    updatePayload.location?.address?.trim();
+  delete updatePayload.address;
+
+  if (incomingStreetAddress !== undefined || updatePayload.location) {
+    const existingLocation = isExistUser.location || {
+      type: "Point" as const,
+      coordinates: [0, 0] as [number, number],
+      address: "",
+    };
+    const nextAddress =
+      incomingStreetAddress ?? existingLocation.address ?? "";
+    if (incomingStreetAddress !== undefined) {
+      updatePayload.streetAddress = incomingStreetAddress;
+    }
+    updatePayload.location = {
+      type: updatePayload.location?.type || existingLocation.type || "Point",
+      coordinates:
+        updatePayload.location?.coordinates ||
+        existingLocation.coordinates || [0, 0],
+      address: nextAddress,
+    };
+  }
+
   // Validate category if provided
   if (updatePayload.category) {
     await validateCategoryExists(updatePayload.category.toString());
@@ -222,18 +250,53 @@ const updateProfileToDB = async (
       coverage:
         normalizedInsurance.coverage ||
         isExistUser.liabilityInsurance?.coverage,
+      expires:
+        normalizedInsurance.expires || isExistUser.liabilityInsurance?.expires,
       certificateUrl:
         normalizedInsurance.certificateUrl ||
         isExistUser.liabilityInsurance?.certificateUrl ||
         "",
+      isVerified: isExistUser.liabilityInsurance?.isVerified ?? false,
     };
   }
   delete updatePayload.insuranceCarrier;
   delete updatePayload.insuranceCoverage;
+  delete updatePayload.insuranceExpires;
+  delete updatePayload.expires;
+  delete updatePayload.expiresAt;
   delete updatePayload.coiCertificate;
   delete updatePayload.insuranceCertificate;
   delete updatePayload.carrier;
   delete updatePayload.coverage;
+
+  // Professional-only profile fields: businessHours, acceptedPayments, projectPhotos
+  if (isExistUser.role === USER_ROLES.PROFESSIONAL) {
+    if (
+      updatePayload.businessHours !== undefined ||
+      updatePayload.emergencyDispatchAvailable !== undefined
+    ) {
+      updatePayload.businessHours = mergeBusinessHours(
+        isExistUser.businessHours,
+        updatePayload.businessHours,
+        updatePayload.emergencyDispatchAvailable,
+      );
+    }
+
+    if (Array.isArray(updatePayload.acceptedPayments)) {
+      updatePayload.acceptedPayments = Array.from(
+        new Set(
+          updatePayload.acceptedPayments
+            .map((method: string) => method.trim())
+            .filter(Boolean),
+        ),
+      );
+    }
+  } else {
+    delete updatePayload.businessHours;
+    delete updatePayload.acceptedPayments;
+    delete updatePayload.projectPhotos;
+  }
+  delete updatePayload.emergencyDispatchAvailable;
 
   const updateDoc = await User.findOneAndUpdate({ _id: id }, updatePayload, {
     new: true,
@@ -332,6 +395,9 @@ const updateApprovalStatusByIdToDB = async (
   if (approvalStatus === APPROVAL_STATUS.APPROVED && user.tradeLicense) {
     updateFields["tradeLicense.isVerified"] = true;
   }
+  if (approvalStatus === APPROVAL_STATUS.APPROVED && user.liabilityInsurance) {
+    updateFields["liabilityInsurance.isVerified"] = true;
+  }
 
   const result = await User.findByIdAndUpdate(
     id,
@@ -396,6 +462,116 @@ const deleteProfileFromDB = async (id: string, password?: string) => {
   return result;
 };
 
+const addProjectPhotoToDB = async (
+  userId: string,
+  payload: {
+    image?: string;
+    projectPhoto?: string;
+    title: string;
+    category: string;
+  },
+) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+  if (user.role !== USER_ROLES.PROFESSIONAL) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Only professionals can manage project photos",
+    );
+  }
+
+  const imageUrl = (payload.projectPhoto || payload.image || "").trim();
+  if (!imageUrl) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Project photo image is required");
+  }
+
+  user.projectPhotos = user.projectPhotos || [];
+  user.projectPhotos.push({
+    image: imageUrl,
+    title: payload.title.trim(),
+    category: payload.category.trim(),
+    createdAt: new Date(),
+  });
+
+  await user.save();
+  return user.projectPhotos;
+};
+
+const updateProjectPhotoToDB = async (
+  userId: string,
+  photoId: string,
+  payload: {
+    image?: string;
+    projectPhoto?: string;
+    title?: string;
+    category?: string;
+  },
+) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+  if (user.role !== USER_ROLES.PROFESSIONAL) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Only professionals can manage project photos",
+    );
+  }
+
+  const photo = (user.projectPhotos as any)?.id?.(photoId) ||
+    user.projectPhotos?.find((p) => p._id?.toString() === photoId);
+
+  if (!photo) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project photo not found");
+  }
+
+  const newImage = (payload.projectPhoto || payload.image || "").trim();
+  if (newImage) {
+    if (photo.image) {
+      unlinkFile(photo.image);
+    }
+    photo.image = newImage;
+  }
+  if (payload.title !== undefined) {
+    photo.title = payload.title.trim();
+  }
+  if (payload.category !== undefined) {
+    photo.category = payload.category.trim();
+  }
+
+  await user.save();
+  return user.projectPhotos;
+};
+
+const deleteProjectPhotoFromDB = async (userId: string, photoId: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+  if (user.role !== USER_ROLES.PROFESSIONAL) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Only professionals can manage project photos",
+    );
+  }
+
+  const photoIndex =
+    user.projectPhotos?.findIndex((p) => p._id?.toString() === photoId) ?? -1;
+  if (photoIndex === -1 || !user.projectPhotos) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Project photo not found");
+  }
+
+  const [removed] = user.projectPhotos.splice(photoIndex, 1);
+  if (removed?.image) {
+    unlinkFile(removed.image);
+  }
+
+  await user.save();
+  return user.projectPhotos;
+};
+
 export const UserService = {
   createUserToDB,
   getUsersFromDB,
@@ -411,4 +587,7 @@ export const UserService = {
   updateAdminStatusByIdToDB,
   deleteUserByIdFromD,
   deleteProfileFromDB,
+  addProjectPhotoToDB,
+  updateProjectPhotoToDB,
+  deleteProjectPhotoFromDB,
 };

@@ -227,6 +227,16 @@ export const FILE_CONFIG = {
       "application/pdf",
     ]),
   },
+  projectPhoto: {
+    dir: "projectPhotos",
+    maxCount: 1,
+    mimeTypes: new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]),
+  },
+  projectPhotos: {
+    dir: "projectPhotos",
+    maxCount: 20,
+    mimeTypes: new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]),
+  },
   documentFront: {
     dir: "documentFront",
     maxCount: 1,

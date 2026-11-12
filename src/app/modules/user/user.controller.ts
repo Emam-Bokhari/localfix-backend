@@ -195,6 +195,44 @@ const deleteProfile = catchAsync(async (req, res) => {
   });
 });
 
+const addProjectPhoto = catchAsync(async (req, res) => {
+  const { id }: any = req.user;
+  const result = await UserService.addProjectPhotoToDB(id, req.body);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.CREATED,
+    message: "Project photo added successfully",
+    data: result,
+  });
+});
+
+const updateProjectPhoto = catchAsync(async (req, res) => {
+  const { id }: any = req.user;
+  const { photoId } = req.params;
+  const result = await UserService.updateProjectPhotoToDB(id, photoId, req.body);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Project photo updated successfully",
+    data: result,
+  });
+});
+
+const deleteProjectPhoto = catchAsync(async (req, res) => {
+  const { id }: any = req.user;
+  const { photoId } = req.params;
+  const result = await UserService.deleteProjectPhotoFromDB(id, photoId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Project photo deleted successfully",
+    data: result,
+  });
+});
+
 export const UserController = {
   createUser,
   createAdmin,
@@ -210,4 +248,7 @@ export const UserController = {
   updateAdminStatusById,
   deleteUserById,
   deleteProfile,
+  addProjectPhoto,
+  updateProjectPhoto,
+  deleteProjectPhoto,
 };

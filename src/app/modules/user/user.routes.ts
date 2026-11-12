@@ -6,6 +6,7 @@ import { parseFileData } from "../../middlewares/parseFileData";
 import {
   isAdmin,
   isAuthenticated,
+  isProfessional,
   isSuperAdmin,
 } from "../../../helpers/authHelper";
 import fileUploadHandler from "../../middlewares/flieUploadHandler";
@@ -28,6 +29,13 @@ const userParseFiles = parseFileData(
   { fieldName: "insuranceCertificate", mode: "single" },
 );
 
+const projectPhotoUpload = fileUploadHandler(["projectPhoto", "image"]);
+
+const projectPhotoParseFiles = parseFileData(
+  { fieldName: "projectPhoto", mode: "single" },
+  { fieldName: "image", mode: "single" },
+);
+
 /* ---------------------------- PROFILE ROUTES ---------------------------- */
 router
   .route("/profile")
@@ -40,6 +48,27 @@ router
     UserController.updateProfile,
   )
   .delete(isAuthenticated, UserController.deleteProfile);
+
+/* ---------------------------- PROJECT PHOTOS (PROFESSIONAL) ------------- */
+router.post(
+  "/profile/project-photos",
+  isProfessional,
+  projectPhotoUpload,
+  projectPhotoParseFiles,
+  validateRequest(UserValidation.addProjectPhotoZodSchema),
+  UserController.addProjectPhoto,
+);
+
+router
+  .route("/profile/project-photos/:photoId")
+  .patch(
+    isProfessional,
+    projectPhotoUpload,
+    projectPhotoParseFiles,
+    validateRequest(UserValidation.updateProjectPhotoZodSchema),
+    UserController.updateProjectPhoto,
+  )
+  .delete(isProfessional, UserController.deleteProjectPhoto);
 
 /* ---------------------------- SUPER ADMIN ------------------------------- */
 router.get("/super-admin", UserController.getSuperAdmin);
