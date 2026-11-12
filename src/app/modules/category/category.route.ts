@@ -39,4 +39,3 @@ router
   .delete(isAdmin, CategoryController.deleteCategory);
 
 export const CategoryRoutes = router;
-
