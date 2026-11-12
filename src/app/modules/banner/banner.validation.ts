@@ -1,14 +1,17 @@
 import { z } from "zod";
 
-const createBannerValidationSchema = z.object({
+const upsertBannerValidationSchema = z.object({
   body: z.object({
-    name: z.string(),
-    description: z.string(),
-    image: z.string(),
-    status: z.enum(["active", "inactive"]).default("active"),
+    headline: z.string().trim().min(1, "Headline cannot be empty").optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, "Description cannot be empty")
+      .optional(),
+    image: z.string().min(1, "Image cannot be empty").optional(),
   }),
 });
 
 export const BannerZodValidation = {
-  createBannerValidationSchema,
+  upsertBannerValidationSchema,
 };

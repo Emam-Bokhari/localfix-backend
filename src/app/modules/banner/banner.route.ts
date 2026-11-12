@@ -17,23 +17,9 @@ router
       fieldName: "image",
       mode: "single",
     }),
-    validateRequest(BannerZodValidation.createBannerValidationSchema),
-    BannerController.createBanner,
+    validateRequest(BannerZodValidation.upsertBannerValidationSchema),
+    BannerController.upsertBanner,
   )
-  .get(BannerController.getBannersFromDB);
-
-router.patch("/status/:id", isAdmin, BannerController.updateBannerStatus);
-
-router
-  .route("/:id")
-  .patch(
-    isAdmin,
-    fileUploadHandler(),
-    parseFileData({ fieldName: "image", mode: "single" }),
-    BannerController.updateBanner,
-  )
-  .delete(isAdmin, BannerController.deleteBanner);
-
-router.get("/all", isAdmin, BannerController.getAllBanner);
+  .get(BannerController.getBanner);
 
 export const BannerRoutes = router;

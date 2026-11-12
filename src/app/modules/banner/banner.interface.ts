@@ -1,11 +1,9 @@
 import { Model } from "mongoose";
-import { ISoftDeleteModel } from "../../../types/softDelete";
 
 export type TBanner = {
-  name: string;
+  headline: string;
   description: string;
   image: string;
-  status: "active" | "inactive";
 };
 
-export type BannerModel = ISoftDeleteModel<TBanner>;
+export type BannerModel = Model<TBanner>;

@@ -1,25 +1,21 @@
 import { model, Schema } from "mongoose";
 import { TBanner, BannerModel } from "./banner.interface";
-import { softDeletePlugin } from "../../../DB/plugins/softDeletePlugin";
 
 const bannerSchema = new Schema<TBanner>(
   {
-    name: {
+    headline: {
       type: String,
       required: true,
+      trim: true,
     },
     description: {
       type: String,
       required: true,
+      trim: true,
     },
     image: {
       type: String,
       required: true,
-    },
-    status: {
-      type: String,
-      enum: ["active", "inactive"],
-      default: "active",
     },
   },
   {
@@ -27,7 +23,5 @@ const bannerSchema = new Schema<TBanner>(
     versionKey: false,
   },
 );
-
-bannerSchema.plugin(softDeletePlugin);
 
 export const Banner = model<TBanner, BannerModel>("Banner", bannerSchema);
