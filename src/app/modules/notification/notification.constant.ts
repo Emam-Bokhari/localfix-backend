@@ -1,11 +1,13 @@
 export enum NOTIFICATION_TYPE {
   SUPER_ADMIN = "super_admin",
   ADMIN = "admin",
+  HOME_OWNER = "home_owner",
+  PROFESSIONAL = "professional",
   LANDLORD = "landlord",
   TENANT = "tenant",
   CONTRACTOR = "contractor",
 
-  // Specific real estate event notifications matching preference settings
+  // Specific event notifications matching preference settings
   RENT_REMINDER = "rent_reminder",
   MAINTENANCE_UPDATE = "maintenance_update",
   COMPLIANCE_ALERT = "compliance_alert",

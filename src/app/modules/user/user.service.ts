@@ -1,26 +1,23 @@
-import { STATUS, USER_ROLES } from "../../../enums/user";
+import { APPROVAL_STATUS, STATUS, USER_ROLES } from "../../../enums/user";
 import { IUser } from "./user.interface";
-import { JwtPayload, Secret } from "jsonwebtoken";
+import { JwtPayload } from "jsonwebtoken";
 import { User } from "./user.model";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import unlinkFile from "../../../shared/unlinkFile";
-import { jwtHelper } from "../../../helpers/jwtHelper";
-import config from "../../../config";
 import QueryBuilder from "../../builder/queryBuilder";
-import generateOTP from "../../../util/generateOTP";
-import { emailTemplate } from "../../../shared/emailTemplate";
-import { emailHelper } from "../../../helpers/emailHelper";
 import bcrypt from "bcrypt";
+import { USER_SEARCHABLE_FIELDS } from "./user.constant";
+import { AuthService } from "../auth/auth.service";
+import { ISignUpData } from "../../../types/auth";
+import {
+  normalizeLiabilityInsurance,
+  normalizeTradeLicense,
+  parseServiceRadius,
+  validateCategoryExists,
+} from "./user.helper";
 import { sendNotifications } from "../../../helpers/notificationsHelper";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
-import { USER_SEARCHABLE_FIELDS } from "./user.constant";
-import { Property } from "../property/property.model";
-import { Flat } from "../flat/flat.model";
-import { Subscription } from "../subscription/subscription.model";
-import { IPackage } from "../package/package.interface";
-import { AdminService } from "../admin/admin.service";
-import { formatMonthlyPrice } from "../../../helpers/currencyHelper";
 
 // --- ADMIN SERVICES ---
 const createAdminToDB = async (payload: Partial<IUser>): Promise<IUser> => {
@@ -35,6 +32,7 @@ const createAdminToDB = async (payload: Partial<IUser>): Promise<IUser> => {
     email: normalizedEmail,
     verified: true,
     status: STATUS.ACTIVE,
+    approvalStatus: APPROVAL_STATUS.APPROVED,
     role: payload.role || USER_ROLES.ADMIN,
   };
 
@@ -123,114 +121,14 @@ const deleteAdminFromDB = async (id: any) => {
 };
 
 // --- USER SERVICES ---
-const createUserToDB = async (payload: Partial<IUser>) => {
-  if (!payload.email) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Email is required");
-  }
-
-  const normalizedEmail = payload.email.trim().toLowerCase();
-  const isExistUser = await User.findOne({ email: normalizedEmail });
-
-  if (isExistUser) {
-    if (isExistUser.verified) {
-      throw new ApiError(
-        StatusCodes.CONFLICT,
-        "This email is already registered",
-      );
-    }
-    // Delete unverified user to allow clean re-registration
-    await User.deleteOne({ _id: isExistUser._id });
-  }
-
-  const validRoles = [
-    USER_ROLES.LANDLORD,
-    USER_ROLES.TENANT,
-    USER_ROLES.CONTRACTOR,
-  ];
-
-  const role =
-    payload.role && validRoles.includes(payload.role)
-      ? payload.role
-      : USER_ROLES.LANDLORD;
-
-  if (payload.emergencyContact && !payload.emergencyPhone) {
-    payload.emergencyPhone = payload.emergencyContact;
-  } else if (payload.emergencyPhone && !payload.emergencyContact) {
-    payload.emergencyContact = payload.emergencyPhone;
-  }
-
-  // Generate OTP
-  const otp = generateOTP();
-  const authentication = {
-    oneTimeCode: Number(otp),
-    expireAt: new Date(Date.now() + 3 * 60000), // 3 minutes validity
-    isResetPassword: false,
-  };
-
-  const userData: Partial<IUser> = {
-    ...payload,
-    email: normalizedEmail,
-    role,
-    verified: false,
-    status: STATUS.ACTIVE,
-    authentication,
-  };
-
-  const createUser = await User.create(userData);
-
-  if (!createUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Failed to create user");
-  }
-
-  // Send email with OTP
-  const emailValues = {
-    name: createUser.name,
-    otp: Number(otp),
-    email: createUser.email,
-  };
-
-  const createAccountEmail = emailTemplate.createAccount(emailValues);
-  emailHelper.sendEmail(createAccountEmail);
-
-  // Create JWT token
-  const token = jwtHelper.createToken(
-    {
-      id: createUser._id,
-      email: createUser.email,
-      role: createUser.role,
-    },
-    config.jwt.jwt_secret as Secret,
-    config.jwt.jwt_expire_in as string,
-  );
-
-  const result = {
-    token,
-    user: createUser,
-  };
-
-  // Notify super admin
-  const admin = await User.findOne({ role: USER_ROLES.SUPER_ADMIN }).select(
-    "_id name",
-  );
-
-  if (admin) {
-    await sendNotifications({
-      title: "New User Signup",
-      text: `${createUser.name} has signed up as a ${createUser.role}.`,
-      receiver: admin._id.toString(),
-      type: NOTIFICATION_TYPE.ADMIN,
-      referenceId: createUser._id.toString(),
-      referenceModel: "User",
-    });
-  }
-
-  return result;
+const createUserToDB = async (payload: ISignUpData) => {
+  return await AuthService.signUpUserToDB(payload);
 };
 
 const getMyProfileFromDB = async (userId: string) => {
-  const result = await User.findById(userId).select(
-    "-password -authentication",
-  );
+  const result = await User.findById(userId)
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication");
 
   if (!result) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
@@ -241,7 +139,7 @@ const getMyProfileFromDB = async (userId: string) => {
 
 const updateProfileToDB = async (
   user: JwtPayload,
-  payload: Partial<IUser>,
+  payload: Record<string, any>,
 ): Promise<Partial<IUser | null>> => {
   const { id } = user;
   const isExistUser = await User.isExistUserById(id);
@@ -249,37 +147,111 @@ const updateProfileToDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  // Unlink file if changed
-  if (payload.profileImage && isExistUser.profileImage) {
+  const updatePayload: Record<string, any> = { ...payload };
+
+  // Prevent overwriting sensitive system fields via profile update
+  delete updatePayload.role;
+  delete updatePayload.verified;
+  delete updatePayload.status;
+  delete updatePayload.approvalStatus;
+  delete updatePayload.backgroundCheck;
+
+  // Unlink old profile image if changed
+  if (updatePayload.profileImage && isExistUser.profileImage) {
     unlinkFile(isExistUser.profileImage);
   }
-  if (payload.nidPhoto && isExistUser.nidPhoto) {
-    unlinkFile(isExistUser.nidPhoto);
+
+  // Alias businessName -> companyName
+  if (updatePayload.businessName && !updatePayload.companyName) {
+    updatePayload.companyName = updatePayload.businessName.trim();
+  }
+  delete updatePayload.businessName;
+
+  // Validate category if provided
+  if (updatePayload.category) {
+    await validateCategoryExists(updatePayload.category.toString());
   }
 
-  if (payload.emergencyContact && !payload.emergencyPhone) {
-    payload.emergencyPhone = payload.emergencyContact;
-  } else if (payload.emergencyPhone && !payload.emergencyContact) {
-    payload.emergencyContact = payload.emergencyPhone;
+  // Parse service radius if provided
+  if (updatePayload.serviceRadiusInMiles !== undefined) {
+    const parsedRadius = parseServiceRadius(updatePayload.serviceRadiusInMiles);
+    if (parsedRadius !== undefined) {
+      updatePayload.serviceRadiusInMiles = parsedRadius;
+    } else {
+      delete updatePayload.serviceRadiusInMiles;
+    }
   }
 
+  // Merge tradeLicense updates cleanly
+  const normalizedLicense = normalizeTradeLicense(updatePayload);
+  if (normalizedLicense) {
+    if (
+      normalizedLicense.certificateUrl &&
+      isExistUser.tradeLicense?.certificateUrl
+    ) {
+      unlinkFile(isExistUser.tradeLicense.certificateUrl);
+    }
+    updatePayload.tradeLicense = {
+      licenseNumber:
+        normalizedLicense.licenseNumber ||
+        isExistUser.tradeLicense?.licenseNumber,
+      state: normalizedLicense.state || isExistUser.tradeLicense?.state,
+      certificateUrl:
+        normalizedLicense.certificateUrl ||
+        isExistUser.tradeLicense?.certificateUrl ||
+        "",
+      isVerified: isExistUser.tradeLicense?.isVerified ?? false,
+    };
+  }
+  delete updatePayload.licenseNumber;
+  delete updatePayload.licenseState;
+  delete updatePayload.tradeLicenseCertificate;
 
-  const updateDoc = await User.findOneAndUpdate({ _id: id }, payload, {
+  // Merge liabilityInsurance updates cleanly
+  const normalizedInsurance = normalizeLiabilityInsurance(updatePayload);
+  if (normalizedInsurance) {
+    if (
+      normalizedInsurance.certificateUrl &&
+      isExistUser.liabilityInsurance?.certificateUrl
+    ) {
+      unlinkFile(isExistUser.liabilityInsurance.certificateUrl);
+    }
+    updatePayload.liabilityInsurance = {
+      carrier:
+        normalizedInsurance.carrier || isExistUser.liabilityInsurance?.carrier,
+      coverage:
+        normalizedInsurance.coverage ||
+        isExistUser.liabilityInsurance?.coverage,
+      certificateUrl:
+        normalizedInsurance.certificateUrl ||
+        isExistUser.liabilityInsurance?.certificateUrl ||
+        "",
+    };
+  }
+  delete updatePayload.insuranceCarrier;
+  delete updatePayload.insuranceCoverage;
+  delete updatePayload.coiCertificate;
+  delete updatePayload.insuranceCertificate;
+  delete updatePayload.carrier;
+  delete updatePayload.coverage;
+
+  const updateDoc = await User.findOneAndUpdate({ _id: id }, updatePayload, {
     new: true,
-  }).select("-password -authentication");
+  })
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication");
 
   return updateDoc;
 };
 
 const getUsersFromDB = async (query: Record<string, unknown>) => {
-  // If role is explicitly provided, filter by that; otherwise ONLY return Landlords (Admin Dashboard requirement)
   const roleFilter = query.role
     ? { role: query.role }
-    : { role: USER_ROLES.LANDLORD };
+    : { role: { $in: [USER_ROLES.HOME_OWNER, USER_ROLES.PROFESSIONAL] } };
 
-  const baseQuery = User.find(roleFilter).select(
-    "-password -authentication -deviceToken",
-  );
+  const baseQuery = User.find(roleFilter)
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication -deviceToken");
 
   const queryBuilder = new QueryBuilder<IUser>(baseQuery, query)
     .search(USER_SEARCHABLE_FIELDS)
@@ -293,131 +265,6 @@ const getUsersFromDB = async (query: Record<string, unknown>) => {
     queryBuilder.countTotal(),
   ]);
 
-  // Enrich landlords with portfolio, plan, and statusBadge
-  if (!query.role || query.role === USER_ROLES.LANDLORD) {
-    const landlordIds = users.map((u) => u._id);
-
-    const [propertiesCounts, flatsCounts, subscriptions] = await Promise.all([
-      Property.aggregate([
-        {
-          $match: { landlord: { $in: landlordIds }, isDeleted: { $ne: true } },
-        },
-        { $group: { _id: "$landlord", count: { $sum: 1 } } },
-      ]),
-      Flat.aggregate([
-        {
-          $match: { landlord: { $in: landlordIds }, isDeleted: { $ne: true } },
-        },
-        { $group: { _id: "$landlord", count: { $sum: 1 } } },
-      ]),
-      Subscription.find({
-        userId: { $in: landlordIds },
-        isDeleted: { $ne: true },
-      })
-        .sort({ createdAt: -1 })
-        .populate<{ packageId: IPackage }>("packageId")
-        .lean(),
-    ]);
-
-    const propCountMap: Record<string, number> = {};
-    for (const item of propertiesCounts) {
-      propCountMap[item._id.toString()] = item.count;
-    }
-
-    const flatCountMap: Record<string, number> = {};
-    for (const item of flatsCounts) {
-      flatCountMap[item._id.toString()] = item.count;
-    }
-
-    const subMap: Record<string, any> = {};
-    for (const sub of subscriptions) {
-      const uId = sub.userId.toString();
-      if (!subMap[uId]) {
-        subMap[uId] = sub;
-      }
-    }
-
-    const enrichedUsers = users.map((user: any) => {
-      const uId = user._id.toString();
-      const propCount = propCountMap[uId] || 0;
-      const unitCount = flatCountMap[uId] || 0;
-      const sub = subMap[uId];
-      const pkg = sub ? (sub.packageId as unknown as IPackage) : null;
-      const maxUnits =
-        pkg && typeof pkg.maxFlats === "number" && pkg.maxFlats > 0
-          ? pkg.maxFlats
-          : null;
-      const isNearLimit =
-        maxUnits !== null && maxUnits > 0 && unitCount >= maxUnits;
-
-      const isTrial = Boolean(sub?.isTrial || sub?.status === "trialing");
-      const isPastDue = Boolean(
-        sub?.status === "past_due" || sub?.status === "unpaid",
-      );
-      const isSuspended = user.status === STATUS.INACTIVE;
-
-      let displayStatus: "active" | "trial" | "past_due" | "suspended" =
-        "active";
-      let statusBadge: {
-        label: string;
-        variant: "success" | "warning" | "danger" | "neutral";
-      } = {
-        label: "Active",
-        variant: "success",
-      };
-
-      if (isSuspended) {
-        displayStatus = "suspended";
-        statusBadge = { label: "Suspended", variant: "danger" };
-      } else if (isTrial) {
-        displayStatus = "trial";
-        statusBadge = { label: "Trial", variant: "warning" };
-      } else if (isPastDue) {
-        displayStatus = "past_due";
-        statusBadge = { label: "Past Due", variant: "danger" };
-      }
-
-      const planData = pkg
-        ? {
-            packageName: pkg.name,
-            price: pkg.monthlyPrice || 0,
-            formattedPrice: formatMonthlyPrice(pkg.monthlyPrice),
-            billingCadence:
-              sub?.planType === "yearly"
-                ? "yearly"
-                : (pkg.monthlyPrice || 0) > 0
-                  ? "monthly"
-                  : "free",
-            isTrial,
-            status: sub?.status || "active",
-          }
-        : null;
-
-      return {
-        ...user,
-        portfolio: {
-          propertiesCount: propCount,
-          unitsCount: unitCount,
-          maxUnits,
-          formattedPortfolio: `${propCount} ${propCount === 1 ? "Property" : "Properties"}`,
-          formattedUnits:
-            maxUnits !== null
-              ? `${unitCount} / ${maxUnits} units`
-              : `${unitCount} ${unitCount === 1 ? "unit" : "units"}`,
-          isNearLimit,
-        },
-        plan: planData,
-        displayStatus,
-        statusBadge,
-      };
-    });
-
-    return {
-      data: enrichedUsers,
-      meta,
-    };
-  }
-
   return {
     data: users,
     meta,
@@ -425,17 +272,12 @@ const getUsersFromDB = async (query: Record<string, unknown>) => {
 };
 
 const getUserByIdFromDB = async (id: string) => {
-  const user = await User.findById(id).select(
-    "-password -authentication -deviceToken",
-  );
+  const user = await User.findById(id)
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication -deviceToken");
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "No user is found by this ID");
-  }
-
-  // If landlord, return full rich landlord detail with stats and plan
-  if (user.role === USER_ROLES.LANDLORD) {
-    return await AdminService.getLandlordByIdFromDB(id);
   }
 
   return user;
@@ -457,11 +299,6 @@ const updateUserStatusByIdToDB = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "No user is found by this ID");
   }
 
-  // If landlord, cascade suspend/reactivate tenants and contractors!
-  if (user.role === USER_ROLES.LANDLORD) {
-    return await AdminService.updateLandlordStatusToDB(id, status);
-  }
-
   const result = await User.findByIdAndUpdate(
     id,
     { status },
@@ -475,15 +312,59 @@ const updateUserStatusByIdToDB = async (
   return result;
 };
 
+const updateApprovalStatusByIdToDB = async (
+  id: string,
+  approvalStatus: APPROVAL_STATUS,
+) => {
+  if (!Object.values(APPROVAL_STATUS).includes(approvalStatus)) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Approval status must be 'pending', 'approved', or 'rejected'",
+    );
+  }
+
+  const user = await User.findById(id);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "No user is found by this ID");
+  }
+
+  const updateFields: Record<string, any> = { approvalStatus };
+  if (approvalStatus === APPROVAL_STATUS.APPROVED && user.tradeLicense) {
+    updateFields["tradeLicense.isVerified"] = true;
+  }
+
+  const result = await User.findByIdAndUpdate(
+    id,
+    { $set: updateFields },
+    { new: true },
+  )
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication");
+
+  if (user.role === USER_ROLES.PROFESSIONAL) {
+    await sendNotifications({
+      receiver: user._id.toString(),
+      type: NOTIFICATION_TYPE.PROFESSIONAL,
+      title:
+        approvalStatus === APPROVAL_STATUS.APPROVED
+          ? "Application Approved"
+          : "Application Status Update",
+      text:
+        approvalStatus === APPROVAL_STATUS.APPROVED
+          ? "Your professional application has been approved. You can now receive local service jobs."
+          : `Your professional application status has been updated to ${approvalStatus}.`,
+      referenceId: user._id.toString(),
+      referenceModel: "User",
+    });
+  }
+
+  return result;
+};
+
 const deleteUserByIdFromD = async (id: string) => {
   const user = await User.findById(id);
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User does not exist");
-  }
-
-  // If landlord, cascade soft-delete properties, flats, tenants, contractors!
-  if (user.role === USER_ROLES.LANDLORD) {
-    return await AdminService.deleteLandlordFromDB(id);
   }
 
   const result = await User.softDeleteById(id);
@@ -500,7 +381,6 @@ const deleteProfileFromDB = async (id: string, password?: string) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
 
-  // If password is set on user account, check password match
   if (user.password && password) {
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
@@ -527,6 +407,7 @@ export const UserService = {
   updateProfileToDB,
   createAdminToDB,
   updateUserStatusByIdToDB,
+  updateApprovalStatusByIdToDB,
   updateAdminStatusByIdToDB,
   deleteUserByIdFromD,
   deleteProfileFromDB,

@@ -1,21 +1,43 @@
 import express, { NextFunction, Request, Response } from "express";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
+import fileUploadHandler from "../../middlewares/flieUploadHandler";
+import { parseFileData } from "../../middlewares/parseFileData";
 import { AuthController } from "./auth.controller";
 import { AuthValidation } from "./auth.validation";
 import { USER_ROLES } from "../../../enums/user";
 
 const router = express.Router();
 
+const signupFileUpload = fileUploadHandler([
+  "profileImage",
+  "tradeLicense",
+  "tradeLicenseCertificate",
+  "coiCertificate",
+  "insuranceCertificate",
+]);
+
+const signupParseFiles = parseFileData(
+  { fieldName: "profileImage", mode: "single" },
+  { fieldName: "tradeLicense", mode: "single" },
+  { fieldName: "tradeLicenseCertificate", mode: "single" },
+  { fieldName: "coiCertificate", mode: "single" },
+  { fieldName: "insuranceCertificate", mode: "single" },
+);
+
 /* ---------------------------- SIGNUP / REGISTER ---------------------------- */
 router.post(
   "/signup",
+  signupFileUpload,
+  signupParseFiles,
   validateRequest(AuthValidation.signUpZodSchema),
   AuthController.signUp,
 );
 
 router.post(
   "/register",
+  signupFileUpload,
+  signupParseFiles,
   validateRequest(AuthValidation.signUpZodSchema),
   AuthController.signUp,
 );
@@ -67,9 +89,8 @@ router.post(
   auth(
     USER_ROLES.ADMIN,
     USER_ROLES.SUPER_ADMIN,
-    USER_ROLES.LANDLORD,
-    USER_ROLES.TENANT,
-    USER_ROLES.CONTRACTOR,
+    USER_ROLES.HOME_OWNER,
+    USER_ROLES.PROFESSIONAL,
   ),
   validateRequest(AuthValidation.createChangePasswordZodSchema),
   AuthController.changePassword,
@@ -84,9 +105,8 @@ router.delete(
   auth(
     USER_ROLES.ADMIN,
     USER_ROLES.SUPER_ADMIN,
-    USER_ROLES.LANDLORD,
-    USER_ROLES.TENANT,
-    USER_ROLES.CONTRACTOR,
+    USER_ROLES.HOME_OWNER,
+    USER_ROLES.PROFESSIONAL,
   ),
   AuthController.deleteUser,
 );

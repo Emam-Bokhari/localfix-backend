@@ -9,17 +9,12 @@ import config from "../../../config";
 // register user
 const createUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { ...userData } = req.body;
-
-    console.log(userData, "payload");
-
-    const result = await UserService.createUserToDB(userData);
+    const result = await UserService.createUserToDB(req.body);
 
     sendResponse(res, {
       success: true,
-      statusCode: StatusCodes.OK,
-      message:
-        "Your account has been successfully created. Verify Your Email By OTP. Check your email",
+      statusCode: StatusCodes.CREATED,
+      message: result.message,
       data: result,
     });
   },
@@ -28,7 +23,6 @@ const createUser = catchAsync(
 // register admin
 const createAdmin = catchAsync(async (req, res) => {
   const userData = req.body;
-  console.log(userData, "payload");
   const result = await UserService.createAdminToDB(userData);
 
   sendResponse(res, {
@@ -71,13 +65,12 @@ const deleteAdmin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-//update profile
+// update profile
 const updateProfile = catchAsync(async (req, res) => {
   const user: any = req.user;
   if ("role" in req.body) {
     delete req.body.role;
   }
-  // If password is provided
   if (req.body.password) {
     req.body.password = await bcrypt.hash(
       req.body.password,
@@ -113,7 +106,7 @@ const getUserById = catchAsync(async (req, res) => {
 
   sendResponse(res, {
     success: true,
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
     message: "Successfully retrieve user by ID",
     data: result,
   });
@@ -121,29 +114,44 @@ const getUserById = catchAsync(async (req, res) => {
 
 const updateUserStatusById = catchAsync(async (req, res) => {
   const { id } = req.params;
-
   const { status } = req.body;
 
   const result = await UserService.updateUserStatusByIdToDB(id, status);
 
   sendResponse(res, {
     success: true,
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
     message: "Status updated successfully",
+    data: result,
+  });
+});
+
+const updateApprovalStatusById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { approvalStatus } = req.body;
+
+  const result = await UserService.updateApprovalStatusByIdToDB(
+    id,
+    approvalStatus,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Approval status updated successfully",
     data: result,
   });
 });
 
 const updateAdminStatusById = catchAsync(async (req, res) => {
   const { id } = req.params;
-
   const { status } = req.body;
 
   const result = await UserService.updateAdminStatusByIdToDB(id, status);
 
   sendResponse(res, {
     success: true,
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
     message: "Admin status updated successfully",
     data: result,
   });
@@ -156,7 +164,7 @@ const deleteUserById = catchAsync(async (req, res) => {
 
   sendResponse(res, {
     success: true,
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
     message: "User is deleted successfully",
     data: result,
   });
@@ -167,7 +175,7 @@ const getMyProfile = catchAsync(async (req, res) => {
   const result = await UserService.getMyProfileFromDB(userId);
   sendResponse(res, {
     success: true,
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
     message: "Profile data is retrieved successfully",
     data: result,
   });
@@ -175,7 +183,6 @@ const getMyProfile = catchAsync(async (req, res) => {
 
 const deleteProfile = catchAsync(async (req, res) => {
   const { id }: any = req.user;
-  // console.log(id, "ID");
   const { password } = req.body;
 
   const result = await UserService.deleteProfileFromDB(id, password);
@@ -198,6 +205,7 @@ export const UserController = {
   updateProfile,
   getUserById,
   updateUserStatusById,
+  updateApprovalStatusById,
   getMyProfile,
   updateAdminStatusById,
   deleteUserById,

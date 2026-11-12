@@ -17,13 +17,28 @@ import { ResetToken } from "../resetToken/resetToken.model";
 import { emailHelper } from "../../../helpers/emailHelper";
 import generateOTP from "../../../util/generateOTP";
 import { emailTemplate } from "../../../shared/emailTemplate";
-import { STATUS, USER_ROLES } from "../../../enums/user";
+import {
+  APPROVAL_STATUS,
+  CHECKR_INVITATION_STATUS,
+  CHECKR_VERIFICATION_STATUS,
+  STATUS,
+  USER_ROLES,
+} from "../../../enums/user";
 import { firebaseAdmin } from "../../../config/firebase";
 import { FcmTokenService } from "../fcmToken/fcmService";
 import { sendNotifications } from "../../../helpers/notificationsHelper";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
+import {
+  normalizeLiabilityInsurance,
+  normalizeTradeLicense,
+  parseBooleanFlag,
+  parseServiceRadius,
+  validateCategoryExists,
+} from "../user/user.helper";
+import { CheckrService } from "../checkr/checkr.service";
+import { Types } from "mongoose";
 
-// ========================== Sign Up via Email (Landlord) ===========================
+// ========================== Sign Up (Homeowner & Professional) ===========================
 const signUpUserToDB = async (payload: ISignUpData) => {
   const { email, password, name, fcmToken, deviceId, deviceType } = payload;
 
@@ -37,6 +52,12 @@ const signUpUserToDB = async (payload: ISignUpData) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Name is required!");
   }
 
+  const validRoles = [USER_ROLES.HOME_OWNER, USER_ROLES.PROFESSIONAL];
+  const role =
+    payload.role && validRoles.includes(payload.role)
+      ? payload.role
+      : USER_ROLES.HOME_OWNER;
+
   const normalizedEmail = email.trim().toLowerCase();
 
   // Check if user already exists
@@ -48,33 +69,174 @@ const signUpUserToDB = async (payload: ISignUpData) => {
         "This email is already registered!",
       );
     }
-    // If not verified, remove stale unverified user to register afresh
+    // Remove stale unverified user to allow clean re-registration
     await User.deleteOne({ _id: isExistUser._id });
+  }
+
+  const baseUserPayload: Record<string, any> = {
+    name: name.trim(),
+    email: normalizedEmail,
+    password,
+    role,
+    phone: payload.phone?.trim(),
+    countryCode: payload.countryCode?.trim(),
+    zipCode: payload.zipCode?.trim(),
+    profileImage: payload.profileImage || "",
+    verified: false,
+    status: STATUS.ACTIVE,
+  };
+
+  if (role === USER_ROLES.HOME_OWNER) {
+    const agreedToTerms = parseBooleanFlag(payload.agreedToTerms);
+    if (!agreedToTerms) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "You must agree to the Terms & Conditions and Privacy Policy.",
+      );
+    }
+    baseUserPayload.agreedToTerms = true;
+    baseUserPayload.termsAcceptedAt = new Date();
+    baseUserPayload.approvalStatus = APPROVAL_STATUS.APPROVED;
+  } else {
+    // Professional signup validations & field assembly
+    if (password.length < 8) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Password must be at least 8 characters for professionals.",
+      );
+    }
+
+    const companyName = (
+      payload.companyName ||
+      payload.businessName ||
+      ""
+    ).trim();
+    if (!companyName) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Business name is required for professionals.",
+      );
+    }
+
+    if (!payload.category) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Primary trade category ID is required for professionals.",
+      );
+    }
+    await validateCategoryExists(payload.category);
+
+    const serviceRadiusInMiles = parseServiceRadius(
+      payload.serviceRadiusInMiles,
+    );
+    if (!serviceRadiusInMiles || serviceRadiusInMiles <= 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Valid service radius in miles is required for professionals.",
+      );
+    }
+
+    const tradeLicense = normalizeTradeLicense(payload);
+    if (!tradeLicense?.licenseNumber || !tradeLicense?.state) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Trade license number and state are required for professionals.",
+      );
+    }
+
+    const backgroundCheckConsent = parseBooleanFlag(
+      payload.backgroundCheckConsent,
+    );
+    if (!backgroundCheckConsent) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "You must agree to complete the background check on Checkr.",
+      );
+    }
+
+    const liabilityInsurance = normalizeLiabilityInsurance(payload);
+
+    baseUserPayload.companyName = companyName;
+    baseUserPayload.category = new Types.ObjectId(payload.category);
+    baseUserPayload.serviceRadiusInMiles = serviceRadiusInMiles;
+    baseUserPayload.state = tradeLicense.state;
+    baseUserPayload.tradeLicense = tradeLicense;
+    if (liabilityInsurance) {
+      baseUserPayload.liabilityInsurance = liabilityInsurance;
+    }
+
+    baseUserPayload.agreedToTerms = parseBooleanFlag(payload.agreedToTerms);
+    if (baseUserPayload.agreedToTerms) {
+      baseUserPayload.termsAcceptedAt = new Date();
+    }
+    baseUserPayload.approvalStatus = APPROVAL_STATUS.PENDING;
+
+    const hasPreCreatedCheckr = Boolean(
+      payload.checkrCandidateId && payload.checkrInvitationId,
+    );
+
+    baseUserPayload.backgroundCheck = {
+      consentAccepted: true,
+      consentAcceptedAt: new Date(),
+      status: hasPreCreatedCheckr
+        ? CHECKR_VERIFICATION_STATUS.PENDING
+        : CHECKR_VERIFICATION_STATUS.NOT_STARTED,
+      passed: false,
+      ...(payload.checkrCandidateId && {
+        checkrCandidateId: payload.checkrCandidateId,
+      }),
+      ...(payload.checkrInvitationId && {
+        checkrInvitationId: payload.checkrInvitationId,
+      }),
+      ...(payload.checkrInvitationUrl && {
+        checkrInvitationUrl: payload.checkrInvitationUrl,
+      }),
+      invitationStatus: hasPreCreatedCheckr
+        ? CHECKR_INVITATION_STATUS.PENDING
+        : CHECKR_INVITATION_STATUS.NOT_SENT,
+    };
   }
 
   // Generate 6-digit OTP
   const otp = generateOTP();
-  const authentication = {
+  baseUserPayload.authentication = {
     oneTimeCode: Number(otp),
-    expireAt: new Date(Date.now() + 3 * 60000), // 3 minutes validity
+    expireAt: new Date(Date.now() + 5 * 60000), // 5 minutes validity
     isResetPassword: false,
   };
 
-  const newUser = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
-    password,
-    role: USER_ROLES.LANDLORD,
-    verified: false,
-    status: STATUS.ACTIVE,
-    authentication,
-  });
+  const newUser = await User.create(baseUserPayload);
 
   if (!newUser) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Failed to create user account!",
     );
+  }
+
+  // Initiate Checkr background check for professionals if not already started on Step 4
+  let checkrData: Record<string, any> | undefined;
+  let checkrError: string | undefined;
+
+  if (role === USER_ROLES.PROFESSIONAL) {
+    if (newUser.backgroundCheck?.checkrInvitationId) {
+      checkrData = {
+        candidateId: newUser.backgroundCheck.checkrCandidateId,
+        invitationId: newUser.backgroundCheck.checkrInvitationId,
+        invitationUrl: newUser.backgroundCheck.checkrInvitationUrl,
+        status: newUser.backgroundCheck.status,
+        invitationStatus: newUser.backgroundCheck.invitationStatus,
+      };
+    } else {
+      try {
+        checkrData = await CheckrService.initiateBackgroundCheckForUser(
+          newUser._id.toString(),
+        );
+      } catch (err: any) {
+        checkrError =
+          err?.message || "Failed to automatically initiate Checkr screening";
+      }
+    }
   }
 
   // Save device token if provided
@@ -121,16 +283,19 @@ const signUpUserToDB = async (payload: ISignUpData) => {
     });
   }
 
-  // Convert user to object and strip sensitive fields
-  const userResult = newUser.toObject();
-  delete (userResult as any).password;
-  delete (userResult as any).authentication;
+  const populatedUser = await User.findById(newUser._id)
+    .populate("category", "name icon coverImage")
+    .select("-password -authentication");
 
   return {
     message:
-      "Your account has been successfully created. Please verify your email with the OTP sent to your inbox.",
+      role === USER_ROLES.PROFESSIONAL
+        ? "Professional application submitted successfully. Please verify your email with the OTP sent to your inbox and complete your Checkr background check."
+        : "Your account has been successfully created. Please verify your email with the OTP sent to your inbox.",
     token,
-    user: userResult,
+    user: populatedUser || newUser,
+    ...(checkrData && { checkr: checkrData }),
+    ...(checkrError && { checkrError }),
   };
 };
 
@@ -141,12 +306,10 @@ const loginUserFromDB = async (payload: ILoginData) => {
   const normalizedEmail = cleanInput.toLowerCase();
 
   const isExistUser = await User.findOne({
-    $or: [
-      { email: normalizedEmail },
-      { userName: cleanInput },
-      { userName: normalizedEmail },
-    ],
-  }).select("+password");
+    $or: [{ email: normalizedEmail }, { phone: cleanInput }],
+  })
+    .select("+password")
+    .populate("category", "name icon coverImage");
 
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
@@ -217,9 +380,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
 // ========================== Forget Password ===========================
 const forgetPasswordToDB = async (email: string) => {
   const normalizedEmail = email?.trim().toLowerCase();
-  const isExistUser = await User.findOne({
-    $or: [{ email: normalizedEmail }, { userName: email?.trim() }],
-  });
+  const isExistUser = await User.findOne({ email: normalizedEmail });
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -235,7 +396,7 @@ const forgetPasswordToDB = async (email: string) => {
 
   const authentication = {
     oneTimeCode: Number(otp),
-    expireAt: new Date(Date.now() + 3 * 60000),
+    expireAt: new Date(Date.now() + 5 * 60000),
     isResetPassword: false,
   };
 
@@ -251,9 +412,9 @@ const forgetPasswordToDB = async (email: string) => {
 const verifyEmailToDB = async (payload: IVerifyEmail) => {
   const { email, oneTimeCode } = payload;
   const normalizedEmail = email?.trim().toLowerCase();
-  const isExistUser = await User.findOne({
-    $or: [{ email: normalizedEmail }, { userName: email?.trim() }],
-  }).select("+authentication");
+  const isExistUser = await User.findOne({ email: normalizedEmail }).select(
+    "+authentication",
+  );
 
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
@@ -297,7 +458,7 @@ const verifyEmailToDB = async (payload: IVerifyEmail) => {
         },
       },
       { new: true },
-    );
+    ).populate("category", "name icon coverImage");
 
     const token = jwtHelper.createToken(
       {
@@ -412,7 +573,6 @@ const resetPasswordToDB = async (
     { new: true },
   );
 
-  // Clean up used token
   await ResetToken.deleteOne({ token });
 
   return { message: "Password reset successfully." };
@@ -497,9 +657,7 @@ const newAccessTokenToUser = async (token: string) => {
 // ========================== Resend Verification OTP ===========================
 const resendVerificationEmailToDB = async (email: string) => {
   const normalizedEmail = email?.trim().toLowerCase();
-  const existingUser = await User.findOne({
-    $or: [{ email: normalizedEmail }, { userName: email?.trim() }],
-  });
+  const existingUser = await User.findOne({ email: normalizedEmail });
 
   if (!existingUser) {
     throw new ApiError(
@@ -527,7 +685,7 @@ const resendVerificationEmailToDB = async (email: string) => {
 
   const authentication = {
     oneTimeCode: Number(otp),
-    expireAt: new Date(Date.now() + 3 * 60000),
+    expireAt: new Date(Date.now() + 5 * 60000),
     isResetPassword: false,
   };
 
@@ -568,8 +726,11 @@ const googleLoginService = async (payload: {
   deviceId?: string;
   deviceType?: "ios" | "android" | "web";
   role?: USER_ROLES;
+  zipCode?: string;
+  phone?: string;
 }) => {
-  const { token, fcmToken, deviceId, deviceType, role } = payload;
+  const { token, fcmToken, deviceId, deviceType, role, zipCode, phone } =
+    payload;
 
   if (!token) {
     throw new ApiError(
@@ -588,7 +749,7 @@ const googleLoginService = async (payload: {
     );
   }
 
-  const { uid: firebaseUid, email, name, picture, email_verified } = decoded;
+  const { uid: firebaseUid, email, name, picture } = decoded;
 
   if (!email) {
     throw new ApiError(
@@ -601,13 +762,9 @@ const googleLoginService = async (payload: {
     $or: [{ firebaseUid }, { email: email.toLowerCase() }],
   });
 
-  const validRoles = [
-    USER_ROLES.LANDLORD,
-    USER_ROLES.TENANT,
-    USER_ROLES.CONTRACTOR,
-  ];
+  const validRoles = [USER_ROLES.HOME_OWNER, USER_ROLES.PROFESSIONAL];
   const assignedRole =
-    role && validRoles.includes(role) ? role : USER_ROLES.LANDLORD;
+    role && validRoles.includes(role) ? role : USER_ROLES.HOME_OWNER;
 
   if (user) {
     if (user.status === STATUS.INACTIVE) {
@@ -626,28 +783,26 @@ const googleLoginService = async (payload: {
     }
     await user.save();
   } else {
-    const baseUsername = email.split("@")[0];
-    let userName = baseUsername;
-    let counter = 1;
-
-    while (await User.findOne({ userName })) {
-      userName = `${baseUsername}${counter}`;
-      counter++;
-    }
-
+    const fallbackName = email.split("@")[0];
     user = await User.create({
       firebaseUid,
       email: email.toLowerCase(),
-      userName,
-      name: name || baseUsername,
+      name: name || fallbackName,
       profileImage: picture || "",
+      ...(zipCode && { zipCode: zipCode.trim() }),
+      ...(phone && { phone: phone.trim() }),
+      agreedToTerms: true,
+      termsAcceptedAt: new Date(),
       verified: true,
       status: STATUS.ACTIVE,
+      approvalStatus:
+        assignedRole === USER_ROLES.HOME_OWNER
+          ? APPROVAL_STATUS.APPROVED
+          : APPROVAL_STATUS.PENDING,
       role: assignedRole,
     });
   }
 
-  // Save device token if provided
   if (fcmToken && deviceId && deviceType) {
     await FcmTokenService.saveDeviceToken(user._id, {
       fcmToken,

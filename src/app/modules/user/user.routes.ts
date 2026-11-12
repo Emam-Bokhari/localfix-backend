@@ -3,16 +3,30 @@ import { UserController } from "./user.controller";
 import { UserValidation } from "./user.validation";
 import validateRequest from "../../middlewares/validateRequest";
 import { parseFileData } from "../../middlewares/parseFileData";
-
 import {
   isAdmin,
   isAuthenticated,
   isSuperAdmin,
 } from "../../../helpers/authHelper";
 import fileUploadHandler from "../../middlewares/flieUploadHandler";
-import { AdminController } from "../admin/admin.controller";
 
 const router = express.Router();
+
+const userFileUpload = fileUploadHandler([
+  "profileImage",
+  "tradeLicense",
+  "tradeLicenseCertificate",
+  "coiCertificate",
+  "insuranceCertificate",
+]);
+
+const userParseFiles = parseFileData(
+  { fieldName: "profileImage", mode: "single" },
+  { fieldName: "tradeLicense", mode: "single" },
+  { fieldName: "tradeLicenseCertificate", mode: "single" },
+  { fieldName: "coiCertificate", mode: "single" },
+  { fieldName: "insuranceCertificate", mode: "single" },
+);
 
 /* ---------------------------- PROFILE ROUTES ---------------------------- */
 router
@@ -20,17 +34,8 @@ router
   .get(isAuthenticated, UserController.getMyProfile)
   .patch(
     isAuthenticated,
-    fileUploadHandler(),
-    parseFileData(
-      {
-        fieldName: "profileImage",
-        mode: "single",
-      },
-      {
-        fieldName: "nidPhoto",
-        mode: "single",
-      },
-    ),
+    userFileUpload,
+    userParseFiles,
     validateRequest(UserValidation.updateProfileZodSchema),
     UserController.updateProfile,
   )
@@ -56,33 +61,15 @@ router
   .route("/")
   .get(isAdmin, UserController.getUsers)
   .post(
-    fileUploadHandler(),
-    parseFileData(
-      {
-        fieldName: "profileImage",
-        mode: "single",
-      },
-      {
-        fieldName: "nidPhoto",
-        mode: "single",
-      },
-    ),
+    userFileUpload,
+    userParseFiles,
     validateRequest(UserValidation.createUserZodSchema),
     UserController.createUser,
   )
   .patch(
     isAuthenticated,
-    fileUploadHandler(),
-    parseFileData(
-      {
-        fieldName: "profileImage",
-        mode: "single",
-      },
-      {
-        fieldName: "nidPhoto",
-        mode: "single",
-      },
-    ),
+    userFileUpload,
+    userParseFiles,
     validateRequest(UserValidation.updateProfileZodSchema),
     UserController.updateProfile,
   );
@@ -99,15 +86,10 @@ router.patch(
   validateRequest(UserValidation.updateUserStatusZodSchema),
   UserController.updateUserStatusById,
 );
-
-/* ---------------------------- LANDLORD SUB-ROUTES ----------------------- */
-router.get("/:id/properties", isAdmin, AdminController.getLandlordProperties);
-router.get("/:id/tenants", isAdmin, AdminController.getLandlordTenants);
-router.get("/:id/contractors", isAdmin, AdminController.getLandlordContractors);
-router.get(
-  "/:id/full-details",
+router.patch(
+  "/approval-status/:id",
   isAdmin,
-  AdminController.getLandlordFullDetails,
+  UserController.updateApprovalStatusById,
 );
 
 /* ---------------------------- DYNAMIC USER ID ROUTES (KEEP LAST!) ------- */

@@ -94,6 +94,8 @@ export const parseFileData = (...fields: FieldInput[]) => {
         "safetyAlarms",
         "appliances",
         "roomChecklist",
+        "tradeLicense",
+        "liabilityInsurance",
       ];
       for (const f of jsonFieldsToParse) {
         if (typeof req.body?.[f] === "string") {

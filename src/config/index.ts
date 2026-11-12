@@ -66,6 +66,13 @@ export default {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },
+  checkr: {
+    apiKey: process.env.CHECKR_API_KEY || "",
+    baseUrl: process.env.CHECKR_BASE_URL || "https://api.checkr.com",
+    signingKey: process.env.CHECKR_SIGNING_KEY || "",
+    backgroundCheckPackage:
+      process.env.CHECKR_BACKGROUND_CHECK_PACKAGE || "tasker_standard",
+  },
   currency: (process.env.CURRENCY || "usd").toLowerCase(),
   currency_code: (process.env.CURRENCY || "USD").toUpperCase(),
   currency_symbol:

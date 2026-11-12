@@ -159,6 +159,39 @@ export const FILE_CONFIG = {
       "application/pdf",
     ]),
   },
+  tradeLicenseCertificate: {
+    dir: "tradeLicense",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "application/pdf",
+    ]),
+  },
+  coiCertificate: {
+    dir: "coiCertificate",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "application/pdf",
+    ]),
+  },
+  insuranceCertificate: {
+    dir: "coiCertificate",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "application/pdf",
+    ]),
+  },
   documentFront: {
     dir: "documentFront",
     maxCount: 1,

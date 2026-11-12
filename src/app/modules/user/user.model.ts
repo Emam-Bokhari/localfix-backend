@@ -1,5 +1,12 @@
 import { model, Schema } from "mongoose";
-import { GENDER, STATUS, USER_ROLES } from "../../../enums/user";
+import {
+  APPROVAL_STATUS,
+  CHECKR_INVITATION_STATUS,
+  CHECKR_VERIFICATION_STATUS,
+  GENDER,
+  STATUS,
+  USER_ROLES,
+} from "../../../enums/user";
 import { IUser, IUserModel } from "./user.interface";
 import bcrypt from "bcrypt";
 import config from "../../../config";
@@ -42,12 +49,25 @@ const userSchema = new Schema<IUser, IUserModel>(
       type: String,
       required: false,
       select: 0,
-      minlength: 8,
+      minlength: 6,
     },
     status: {
       type: String,
       enum: Object.values(STATUS),
       default: STATUS.ACTIVE,
+    },
+    approvalStatus: {
+      type: String,
+      enum: Object.values(APPROVAL_STATUS),
+      default: APPROVAL_STATUS.APPROVED,
+    },
+    agreedToTerms: {
+      type: Boolean,
+      default: false,
+    },
+    termsAcceptedAt: {
+      type: Date,
+      default: null,
     },
     about: {
       type: String,
@@ -72,6 +92,7 @@ const userSchema = new Schema<IUser, IUserModel>(
     phone: {
       type: String,
       required: false,
+      trim: true,
     },
     countryCode: {
       type: String,
@@ -108,6 +129,100 @@ const userSchema = new Schema<IUser, IUserModel>(
     companyName: {
       type: String,
       required: false,
+      trim: true,
+    },
+    tradeLicense: {
+      licenseNumber: {
+        type: String,
+        trim: true,
+      },
+      state: {
+        type: String,
+        trim: true,
+      },
+      certificateUrl: {
+        type: String,
+        default: "",
+      },
+      isVerified: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    liabilityInsurance: {
+      carrier: {
+        type: String,
+        trim: true,
+      },
+      coverage: {
+        type: String,
+        trim: true,
+      },
+      certificateUrl: {
+        type: String,
+        default: "",
+      },
+    },
+    backgroundCheck: {
+      consentAccepted: {
+        type: Boolean,
+        default: false,
+      },
+      consentAcceptedAt: {
+        type: Date,
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: Object.values(CHECKR_VERIFICATION_STATUS),
+        default: CHECKR_VERIFICATION_STATUS.NOT_STARTED,
+      },
+      passed: {
+        type: Boolean,
+        default: false,
+      },
+      checkrCandidateId: {
+        type: String,
+        index: true,
+        sparse: true,
+      },
+      checkrInvitationId: {
+        type: String,
+        index: true,
+        sparse: true,
+      },
+      checkrInvitationUrl: {
+        type: String,
+        default: "",
+      },
+      invitationStatus: {
+        type: String,
+        enum: Object.values(CHECKR_INVITATION_STATUS),
+        default: CHECKR_INVITATION_STATUS.NOT_SENT,
+      },
+      checkrReportId: {
+        type: String,
+        index: true,
+        sparse: true,
+      },
+      checkrPackage: {
+        type: String,
+      },
+      result: {
+        type: String,
+        default: null,
+      },
+      verifiedAt: {
+        type: Date,
+        default: null,
+      },
+      lastCheckedAt: {
+        type: Date,
+        default: null,
+      },
+      notes: {
+        type: String,
+      },
     },
     location: {
       type: {
@@ -207,6 +322,7 @@ userSchema.pre("save", async function (next) {
 
 userSchema.index({ role: 1 });
 userSchema.index({ role: 1, status: 1 });
+userSchema.index({ category: 1, role: 1 });
 userSchema.index({ location: "2dsphere" });
 
 export const User = model<IUser, IUserModel>("User", userSchema);
