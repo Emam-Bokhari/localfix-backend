@@ -4,7 +4,6 @@ import { IMessage } from "./message.interface";
 import { Message } from "./message.model";
 import { chatSocketHelper } from "../chat/socket/chat.socket";
 import { chatPermissionHelper } from "../chat/helpers/chatPermission.helper";
-import { CHAT_COMMUNICATION_TYPE } from "../../../enums/chat";
 import { MESSAGE_TYPE } from "../../../enums/message";
 
 const detectMessageType = (payload: Partial<IMessage>): MESSAGE_TYPE => {
@@ -34,24 +33,16 @@ const sendMessageToDB = async (payload: IMessage): Promise<IMessage> => {
     throw new ApiError(403, "Sender is not a participant in this chat");
   }
 
-  // Validate contextual permission if the chat has a type other than OTHER
-  if (
-    chat.communicationType &&
-    chat.communicationType !== CHAT_COMMUNICATION_TYPE.OTHER
-  ) {
-    const receiverId = chat.participants.find(
-      (p) => p.toString() !== payload.sender.toString(),
+  const receiverId = chat.participants.find(
+    (p) => p.toString() !== payload.sender.toString(),
+  );
+  if (receiverId) {
+    const permission = await chatPermissionHelper.checkChatPermission(
+      payload.sender,
+      receiverId,
     );
-    if (receiverId) {
-      const permission = await chatPermissionHelper.checkChatPermission(
-        payload.sender,
-        receiverId,
-        chat.communicationType,
-        chat.referenceId,
-      );
-      if (!permission.allowed) {
-        throw new ApiError(403, `Cannot send message: ${permission.reason}`);
-      }
+    if (!permission.allowed) {
+      throw new ApiError(403, `Cannot send message: ${permission.reason}`);
     }
   }
 
@@ -83,12 +74,12 @@ const sendMessageToDB = async (payload: IMessage): Promise<IMessage> => {
 
   // get populated message for socket
   const populatedMessage = await Message.findById(response._id)
-    .populate("sender", "name role activeRole email profileImage")
+    .populate("sender", "name role email profileImage")
     .lean();
 
   // get updated chat with populated data for chat list update
   const populatedChat = await Chat.findById(response?.chatId)
-    .populate("participants", "name role activeRole email profileImage")
+    .populate("participants", "name role email profileImage")
     .populate("lastMessage")
     .lean();
 
@@ -178,12 +169,12 @@ const getMessagesFromDB = async (
   const response = await Message.find({ chatId })
     .populate({
       path: "sender",
-      select: "name role activeRole email profileImage companyName primaryTrade"
+      select: "name role email profileImage companyName"
     })
     .populate({
       path: "pinnedBy",
       select:
-        "name role activeRole email profileImage companyName primaryTrade",
+        "name role email profileImage companyName",
     })
     .skip(skip)
     .limit(limitInt)
@@ -215,12 +206,12 @@ const getMessagesFromDB = async (
     .populate({
       path: "sender",
       select:
-        "name role activeRole email profileImage companyName primaryTrade",
+        "name role email profileImage companyName",
     })
     .populate({
       path: "pinnedBy",
       select:
-        "name role activeRole email profileImage companyName primaryTrade",
+        "name role email profileImage companyName",
     })
     .sort({ pinnedAt: -1 });
 

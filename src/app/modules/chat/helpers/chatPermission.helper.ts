@@ -1,7 +1,5 @@
 import { Types } from "mongoose";
 import { User } from "../../user/user.model";
-import { Support } from "../../support/support.model";
-import { CHAT_COMMUNICATION_TYPE } from "../../../../enums/chat";
 import { STATUS, USER_ROLES } from "../../../../enums/user";
 
 export interface IChatPermissionResult {
@@ -9,14 +7,19 @@ export interface IChatPermissionResult {
   reason: string;
 }
 
+const VALID_CHAT_ROLES = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.HOME_OWNER,
+  USER_ROLES.PROFESSIONAL,
+];
+
 /**
  * Centrally validates if chat communication is allowed between sender and receiver.
  */
 export const checkChatPermission = async (
   senderId: string | Types.ObjectId,
   receiverId: string | Types.ObjectId,
-  communicationType: CHAT_COMMUNICATION_TYPE,
-  referenceId?: string | Types.ObjectId,
 ): Promise<IChatPermissionResult> => {
   const sender = await User.findById(senderId);
   const receiver = await User.findById(receiverId);
@@ -48,41 +51,15 @@ export const checkChatPermission = async (
     return { allowed: false, reason: "Receiver user is blocked or suspended." };
   }
 
-  // 3. Contextual/Reference Validations
-  switch (communicationType) {
-    case CHAT_COMMUNICATION_TYPE.SUPPORT: {
-      const isAdmin =
-        sender.role === USER_ROLES.ADMIN ||
-        sender.role === USER_ROLES.SUPER_ADMIN ||
-        receiver.role === USER_ROLES.ADMIN ||
-        receiver.role === USER_ROLES.SUPER_ADMIN;
-
-      if (!isAdmin) {
-        return {
-          allowed: false,
-          reason: "Support chat requires at least one admin participant.",
-        };
-      }
-
-      if (referenceId) {
-        const ticket = await Support.findById(referenceId);
-        if (!ticket) {
-          return { allowed: false, reason: "Support ticket not found." };
-        }
-      }
-      break;
-    }
-
-    case CHAT_COMMUNICATION_TYPE.LANDLORD:
-    case CHAT_COMMUNICATION_TYPE.CONTRACTOR:
-    case CHAT_COMMUNICATION_TYPE.TENANT:
-    case CHAT_COMMUNICATION_TYPE.MAINTENANCE:
-    case CHAT_COMMUNICATION_TYPE.OTHER:
-      // Regular messaging between active users (Admin, Landlord, Contractor, Tenant)
-      break;
-
-    default:
-      return { allowed: false, reason: "Invalid communication type." };
+  // 3. Verify valid project roles
+  if (
+    !VALID_CHAT_ROLES.includes(sender.role) ||
+    !VALID_CHAT_ROLES.includes(receiver.role)
+  ) {
+    return {
+      allowed: false,
+      reason: "Invalid user role for chat communication.",
+    };
   }
 
   return { allowed: true, reason: "Allowed" };

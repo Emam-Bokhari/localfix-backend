@@ -1,5 +1,5 @@
 import { ISoftDeleteModel } from "../../../types/softDelete";
-import { Model, Types } from "mongoose";
+import { Types } from "mongoose";
 import { MESSAGE_TYPE } from "../../../enums/message";
 
 export type IMessage = {

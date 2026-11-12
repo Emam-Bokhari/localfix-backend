@@ -3,42 +3,16 @@ import mongoose from "mongoose";
 import { User } from "../user/user.model";
 import { Message } from "../message/message.model";
 import ApiError from "../../../errors/ApiErrors";
-import { CHAT_COMMUNICATION_TYPE } from "../../../enums/chat";
 import { MESSAGE_TYPE } from "../../../enums/message";
-import { STATUS, USER_ROLES } from "../../../enums/user";
 import { chatSocketHelper } from "./socket/chat.socket";
 
-const createChatIntoDB = async (
-  participants: string[],
-  communicationType?: CHAT_COMMUNICATION_TYPE,
-  referenceId?: string,
-) => {
-  const commType = communicationType || CHAT_COMMUNICATION_TYPE.OTHER;
-
-  // If support chat requested and no distinct second participant provided, resolve an admin automatically
-  if (
-    commType === CHAT_COMMUNICATION_TYPE.SUPPORT &&
-    (!participants[1] || participants[0] === participants[1])
-  ) {
-    const adminUser = await User.findOne({
-      role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
-      status: STATUS.ACTIVE,
-    });
-    if (!adminUser) {
-      throw new ApiError(404, "No support admin available at the moment.");
-    }
-    participants = [participants[0], adminUser._id.toString()];
-  }
-
+const createChatIntoDB = async (participants: string[]) => {
   // Deduplicate participants to avoid duplicate entries in the array and duplicate socket emissions
   const uniqueParticipants = [
     ...new Set(participants.map((p) => p.toString())),
   ];
 
-  if (
-    uniqueParticipants.length < 2 &&
-    commType !== CHAT_COMMUNICATION_TYPE.SUPPORT
-  ) {
+  if (uniqueParticipants.length < 2) {
     throw new ApiError(
       400,
       "Chat requires at least two distinct participants.",
@@ -50,15 +24,8 @@ const createChatIntoDB = async (
       $size: uniqueParticipants.length,
       $all: uniqueParticipants,
     },
-    communicationType: commType,
     isDeleted: { $ne: true },
   };
-
-  if (referenceId) {
-    query.referenceId = new mongoose.Types.ObjectId(referenceId);
-  } else {
-    query.$or = [{ referenceId: { $exists: false } }, { referenceId: null }];
-  }
 
   const isExistChat = await Chat.findOne(query);
 
@@ -76,10 +43,6 @@ const createChatIntoDB = async (
   const newChat = await Chat.create({
     participants: uniqueParticipants,
     lastMessage: null,
-    communicationType: commType,
-    referenceId: referenceId
-      ? new mongoose.Types.ObjectId(referenceId)
-      : undefined,
   });
   if (!newChat) {
     throw new ApiError(500, "Failed to create chat");
@@ -140,31 +103,63 @@ const markChatAsRead = async (userId: string, chatId: string) => {
   return result;
 };
 
-// 5. Updated getAllChatsFromDB with better unread count calculation and filters
+const enrichChatsWithUnreadCount = async (
+  rawChats: any[],
+  userId: string,
+) => {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+
+  return Promise.all(
+    rawChats.map(async (chat) => {
+      const otherParticipantIds = chat.participants.filter(
+        (participantId: any) =>
+          participantId && participantId.toString() !== userId.toString(),
+      );
+
+      const otherParticipants = await User.find({
+        _id: { $in: otherParticipantIds },
+      })
+        .select("_id name profileImage email role companyName phone")
+        .lean();
+
+      const unreadCount = await Message.countDocuments({
+        chatId: chat._id,
+        sender: { $ne: userObjectId },
+        read: false,
+        isDeleted: false,
+      });
+
+      return {
+        ...chat,
+        participants: otherParticipants,
+        read: unreadCount === 0,
+        isRead: unreadCount === 0,
+        unreadCount,
+      };
+    }),
+  );
+};
+
 const getAllChatsFromDB = async (
   userId: string,
   query: Record<string, any>,
 ) => {
   const searchTerm = query.searchTerm?.toLowerCase();
-  const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 10;
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const limit = Math.max(parseInt(query.limit) || 10, 1);
   const skip = (page - 1) * limit;
+  const userObjectId = new mongoose.Types.ObjectId(userId);
 
   const chatQuery: any = {
-    participants: { $in: [userId] },
-    deletedBy: { $ne: userId },
+    participants: { $in: [userObjectId] },
+    deletedBy: { $ne: userObjectId },
     isDeleted: { $ne: true },
   };
 
-  if (query.communicationType) {
-    chatQuery.communicationType = query.communicationType;
-  }
-  if (query.referenceId) {
-    chatQuery.referenceId = query.referenceId;
-  }
-
   let chats;
   let totalChats;
+  let unreadChatsCount = 0;
+  let totalUnreadMessages = 0;
 
   if (searchTerm) {
     const allChats = await Chat.find(chatQuery)
@@ -172,53 +167,30 @@ const getAllChatsFromDB = async (
         path: "lastMessage",
         populate: {
           path: "sender",
-          select: "_id name profileImage email role primaryTrade companyName",
+          select: "_id name profileImage email role companyName",
         },
       })
       .lean()
       .sort({ updatedAt: -1 });
 
-    const allChatLists = await Promise.all(
-      allChats.map(async (chat) => {
-        const otherParticipantIds = chat.participants.filter(
-          (participantId) =>
-            participantId && participantId.toString() !== userId,
-        );
+    const allChatLists = await enrichChatsWithUnreadCount(allChats, userId);
 
-        const otherParticipants = await User.find({
-          _id: { $in: otherParticipantIds },
-        })
-          .select(
-            "_id name profileImage email role primaryTrade companyName phone",
-          )
-          .lean();
-
-        const unreadCount = await Message.countDocuments({
-          chatId: chat._id,
-          sender: { $ne: userId },
-          read: false,
-          isDeleted: false,
-        });
-
-        return {
-          ...chat,
-          participants: otherParticipants,
-          read: unreadCount === 0,
-          isRead: unreadCount === 0, // Chat is read if no unread messages
-          unreadCount,
-        };
-      }),
-    );
-
-    const filteredChats = allChatLists.filter((chat) => {
-      return chat.participants.some(
+    const filteredChats = allChatLists.filter((chat) =>
+      chat.participants.some(
         (participant: any) =>
           participant.name &&
           participant.name.toLowerCase().includes(searchTerm),
-      );
-    });
+      ),
+    );
 
     totalChats = filteredChats.length;
+    unreadChatsCount = filteredChats.filter(
+      (chat) => chat.unreadCount > 0,
+    ).length;
+    totalUnreadMessages = filteredChats.reduce(
+      (total, chat) => total + chat.unreadCount,
+      0,
+    );
     chats = filteredChats.slice(skip, skip + limit);
   } else {
     totalChats = await Chat.countDocuments(chatQuery);
@@ -228,7 +200,7 @@ const getAllChatsFromDB = async (
         path: "lastMessage",
         populate: {
           path: "sender",
-          select: "_id name profileImage email role primaryTrade companyName",
+          select: "_id name profileImage email role companyName",
         },
       })
       .lean()
@@ -236,45 +208,34 @@ const getAllChatsFromDB = async (
       .skip(skip)
       .limit(limit);
 
-    chats = await Promise.all(
-      rawChats.map(async (chat) => {
-        const otherParticipantIds = chat.participants.filter(
-          (participantId) =>
-            participantId && participantId.toString() !== userId,
-        );
+    chats = await enrichChatsWithUnreadCount(rawChats, userId);
 
-        const otherParticipants = await User.find({
-          _id: { $in: otherParticipantIds },
-        })
-          .select(
-            "_id name profileImage email role primaryTrade companyName phone",
-          )
-          .lean();
+    const allChatIds = await Chat.find(chatQuery).distinct("_id");
+    if (allChatIds.length > 0) {
+      const unreadSummary = await Message.aggregate([
+        {
+          $match: {
+            chatId: { $in: allChatIds },
+            sender: { $ne: userObjectId },
+            read: false,
+            isDeleted: false,
+          },
+        },
+        {
+          $group: {
+            _id: "$chatId",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
 
-        // FIXED: Same unread count calculation
-        const unreadCount = await Message.countDocuments({
-          chatId: chat._id,
-          sender: { $ne: userId },
-          read: false,
-          isDeleted: false,
-        });
-
-        return {
-          ...chat,
-          participants: otherParticipants,
-          read: unreadCount === 0,
-          isRead: unreadCount === 0,
-          unreadCount,
-        };
-      }),
-    );
+      unreadChatsCount = unreadSummary.length;
+      totalUnreadMessages = unreadSummary.reduce(
+        (total, item) => total + item.count,
+        0,
+      );
+    }
   }
-
-  const unreadChatsCount = chats.filter((chat) => chat.unreadCount > 0).length;
-  const totalUnreadMessages = chats.reduce(
-    (total, chat) => total + chat.unreadCount,
-    0,
-  );
 
   const totalPage = Math.ceil(totalChats / limit);
 

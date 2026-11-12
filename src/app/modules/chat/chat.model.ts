@@ -1,7 +1,7 @@
 import { softDeletePlugin } from "../../../DB/plugins/softDeletePlugin";
 import mongoose, { Schema } from "mongoose";
 import { IChat, ChatModel } from "./chat.interface";
-import { CHAT_COMMUNICATION_TYPE, CHAT_STATUS } from "../../../enums/chat";
+import { CHAT_STATUS } from "../../../enums/chat";
 
 const chatSchema = new Schema<IChat, ChatModel>(
   {
@@ -20,15 +20,6 @@ const chatSchema = new Schema<IChat, ChatModel>(
       default: CHAT_STATUS.ACTIVE,
     },
     pinnedMessages: [{ type: Schema.Types.ObjectId, ref: "Message" }],
-    communicationType: {
-      type: String,
-      enum: Object.values(CHAT_COMMUNICATION_TYPE),
-      default: CHAT_COMMUNICATION_TYPE.OTHER,
-    },
-    referenceId: {
-      type: Schema.Types.ObjectId,
-      required: false,
-    },
   },
   {
     timestamps: true,
