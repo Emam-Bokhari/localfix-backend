@@ -6,7 +6,6 @@ import { chatSocketHelper } from "../chat/socket/chat.socket";
 import { chatPermissionHelper } from "../chat/helpers/chatPermission.helper";
 import { CHAT_COMMUNICATION_TYPE } from "../../../enums/chat";
 import { MESSAGE_TYPE } from "../../../enums/message";
-import { notificationHelper } from "../../builder/pushNotification";
 
 const detectMessageType = (payload: Partial<IMessage>): MESSAGE_TYPE => {
   const hasText = !!payload.text && payload.text.trim().length > 0;
@@ -134,18 +133,6 @@ const sendMessageToDB = async (payload: IMessage): Promise<IMessage> => {
       lastMessage: populatedMessage,
       updatedAt: new Date(),
     });
-  }
-
-  // Send real-time FCM push notifications to message recipients
-  try {
-    if (populatedMessage) {
-      await notificationHelper.sendChatMessage(chat, populatedMessage);
-    }
-  } catch (error: any) {
-    console.error(
-      "FCM push notification failed for chat message:",
-      error.message,
-    );
   }
 
   return response;

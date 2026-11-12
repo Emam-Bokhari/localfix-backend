@@ -24,7 +24,7 @@ export const sendNotifications = async (
 
     return result;
   } else {
-    // For user events (landlord, tenant, contractor, rent_reminder, maintenance_update, compliance_alert, job_update, etc.)
+    // For user events (home_owner, professional, subscription_update, review_update, message_new, etc.)
     if (!data.receiver) return;
 
     const payload = {

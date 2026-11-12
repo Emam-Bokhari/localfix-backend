@@ -9,8 +9,6 @@ import { ISubscription } from "./subscription.interface";
 import { Subscription } from "./subscription.model";
 
 
-import { sendNotifications } from "../../../helpers/notificationsHelper";
-import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import { getCurrencyCode } from "../../../helpers/currencyHelper";
 
 // 1. Create Stripe Checkout Session
@@ -347,16 +345,6 @@ const handleSubscriptionCheckoutCompleted = async (
     },
     { upsert: true, new: true },
   );
-
-  // Send in-app notification to landlord
-  await sendNotifications({
-    receiver: userId as any,
-    title: isTrial ? "≡ƒÄë Free Trial Activated!" : "≡ƒÄë Subscription Activated!",
-    text: isTrial
-      ? `Your free trial is now active until ${trialEndsAt?.toLocaleDateString()}. Enjoy full access!`
-      : "Your subscription payment was successful. Welcome aboard!",
-    type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-  });
 };
 
 // B. Handle invoice.payment_succeeded (recurring renewal or trial conversion to paid)
@@ -409,22 +397,8 @@ const handleInvoicePaymentSucceeded = async (invoice: Stripe.Invoice) => {
 
     // If trial transitioned to active paid
     if (wasTrial && subObj.status === "active") {
-      await sendNotifications({
-        receiver: subscription.userId as any,
-        title: "≡ƒÄë Trial Converted to Active Subscription",
-        text: `Your free trial has ended and your subscription is now active. Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}`,
-        type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-      });
       return;
     }
-
-    // Send notification for successful recurring renewal (e.g., subscription_cycle)
-    await sendNotifications({
-      receiver: subscription.userId as any,
-      title: "Γ£à Subscription Renewed",
-      text: `Your subscription has been renewed successfully. Next billing date: ${subscription.currentPeriodEnd.toLocaleDateString()}`,
-      type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-    });
   }
 };
 
@@ -445,13 +419,6 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice) => {
   if (subscription) {
     subscription.status = "past_due";
     await subscription.save();
-
-    await sendNotifications({
-      receiver: subscription.userId as any,
-      title: "ΓÜá∩╕Å Subscription Payment Failed",
-      text: "Payment for your subscription renewal could not be processed. Please update your billing method.",
-      type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-    });
   }
 };
 
@@ -499,13 +466,6 @@ const handleSubscriptionDeleted = async (
     subscription.status = "canceled";
     subscription.canceledAt = new Date();
     await subscription.save();
-
-    await sendNotifications({
-      receiver: subscription.userId as any,
-      title: "Subscription Canceled",
-      text: "Your subscription has ended. Upgrade anytime to continue creating properties and units.",
-      type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-    });
   }
 };
 
@@ -519,13 +479,6 @@ const handleTrialWillEnd = async (stripeSubscription: Stripe.Subscription) => {
     const trialEnd = stripeSubscription.trial_end
       ? new Date(stripeSubscription.trial_end * 1000)
       : subscription.trialEndsAt;
-
-    await sendNotifications({
-      receiver: subscription.userId as any,
-      title: "ΓÅ│ Your Free Trial Ends in 3 Days",
-      text: `Your free trial will end on ${trialEnd?.toLocaleDateString()}. Your card will be billed automatically unless canceled.`,
-      type: NOTIFICATION_TYPE.SUBSCRIPTION_UPDATE,
-    });
   }
 };
 

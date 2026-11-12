@@ -5,7 +5,6 @@ import { logger } from "../../shared/logger";
 import colors from "colors";
 import { DeviceToken } from "../modules/fcmToken/fcmToken.model";
 import { firebaseAdmin } from "../../config/firebase";
-import { NOTIFICATION_TYPE } from "../modules/notification/notification.constant";
 import { emailHelper } from "../../helpers/emailHelper";
 import { emailTemplate } from "../../shared/emailTemplate";
 
@@ -51,6 +50,7 @@ class NotificationHelper {
       const validUserIds = validUsers.map((u) => u._id);
 
       if (validUserIds.length === 0) return;
+
       // 2. Fetch FCM Tokens for valid users
       let fcmTokens: string[] = [];
       const tokensData = await DeviceToken.find({
@@ -83,53 +83,6 @@ class NotificationHelper {
       );
     } catch (error) {
       logger.error(colors.red("❌ NotificationHelper Error:"), error);
-    }
-  }
-
-  /**
-   * 🟠 SEND CHAT MESSAGE NOTIFICATION
-   */
-  async sendChatMessage(chat: any, message: any) {
-    try {
-      const senderId = message.sender._id.toString();
-      const senderName =
-        message.sender.name ||
-        `${message.sender.firstName || ""} ${message.sender.lastName || ""}`.trim() ||
-        "User";
-
-      // message format body
-      let bodyText = message.text;
-      if (message.isDeleted) bodyText = "This message was deleted";
-      if (!bodyText && message.productId)
-        bodyText = "Sent a product attachment";
-      if (!bodyText) bodyText = "Sent a new message";
-
-      // Remove sender from recipients
-      const recipients = chat.participants
-        .filter((p: any) => {
-          const pId = p._id ? p._id.toString() : p.toString();
-          return pId !== senderId;
-        })
-        .map((p: any) => p._id || p);
-
-      if (recipients.length === 0) return;
-
-      await this.sendToBatch(recipients, {
-        title: senderName,
-        body: bodyText.substring(0, 100),
-        type: NOTIFICATION_TYPE.MESSAGE_NEW,
-        data: {
-          type: NOTIFICATION_TYPE.MESSAGE_NEW,
-          chatId: chat._id.toString(),
-          messageId: message._id.toString(),
-          referenceId: chat._id.toString(),
-          referenceModel: "Chat",
-          sender: senderId,
-          click_action: "FLUTTER_NOTIFICATION_CLICK",
-        },
-      });
-    } catch (error) {
-      logger.error(colors.red("❌ Error inside sendChatMessage:"), error);
     }
   }
 

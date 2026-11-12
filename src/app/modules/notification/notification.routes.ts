@@ -19,25 +19,6 @@ router
   .patch(auth(...allRoles), NotificationController.readNotification)
   .delete(auth(...allRoles), NotificationController.deleteNotification);
 
-router.get(
-  "/recent",
-  auth(...allRoles),
-  NotificationController.getRecentActivities,
-);
-
-// message notification routes
-router
-  .route("/messages")
-  .get(auth(...allRoles), NotificationController.getMessageNotifications)
-  .patch(auth(...allRoles), NotificationController.readMessageNotifications)
-  .delete(auth(...allRoles), NotificationController.deleteMessageNotifications);
-
-router.patch(
-  "/messages/read",
-  auth(...allRoles),
-  NotificationController.readMessageNotifications,
-);
-
 // admin routes
 router
   .route("/admin")
@@ -53,12 +34,6 @@ router
     auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
     NotificationController.adminDeleteNotification,
   );
-
-router.get(
-  "/admin/recent",
-  auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
-  NotificationController.adminRecentActivities,
-);
 
 router
   .route("/admin/:id")

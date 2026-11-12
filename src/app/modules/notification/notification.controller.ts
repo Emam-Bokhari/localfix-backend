@@ -61,30 +61,7 @@ const adminReadNotification = catchAsync(
   },
 );
 
-const getRecentActivities = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user;
-  const result = await NotificationService.getRecentActivitiesFromDB(user);
 
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Recent Activities Retrieved Successfully",
-    data: result,
-  });
-});
-
-const adminRecentActivities = catchAsync(
-  async (req: Request, res: Response) => {
-    const result = await NotificationService.adminRecentActivitiesFromDB();
-
-    sendResponse(res, {
-      statusCode: StatusCodes.OK,
-      success: true,
-      message: "Admin Recent Activities Retrieved Successfully",
-      data: result,
-    });
-  },
-);
 
 // user single get
 const getSingleNotification = catchAsync(async (req, res) => {
@@ -218,68 +195,11 @@ const adminDeleteNotification = catchAsync(async (req, res) => {
   });
 });
 
-// ================= MESSAGE NOTIFICATIONS (SEPARATE) =================
-
-// get message notifications only
-const getMessageNotifications = catchAsync(async (req, res) => {
-  const user = req.user;
-  const result = await NotificationService.getMessageNotificationsFromDB(
-    user,
-    req.query,
-  );
-
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Message notifications retrieved successfully",
-    data: result.data,
-    meta: result.meta,
-  });
-});
-
-// read all message notifications
-const readMessageNotifications = catchAsync(async (req, res) => {
-  const user = req.user;
-  const result = await NotificationService.readMessageNotificationsToDB(user);
-
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Message notifications marked as read",
-    data: result,
-  });
-});
-
-// delete message notifications (all or selected ids)
-const deleteMessageNotifications = catchAsync(async (req, res) => {
-  const ids =
-    req.body?.ids ||
-    (req.query?.ids
-      ? typeof req.query.ids === "string"
-        ? req.query.ids.split(",")
-        : (req.query.ids as string[])
-      : undefined);
-
-  const result = await NotificationService.deleteMessageNotificationsFromDB(
-    req.user,
-    ids,
-  );
-
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Message notifications deleted successfully",
-    data: result,
-  });
-});
-
 export const NotificationController = {
   adminNotificationFromDB,
   getNotificationFromDB,
   readNotification,
   adminReadNotification,
-  getRecentActivities,
-  adminRecentActivities,
   getSingleNotification,
   readSingleNotification,
   adminGetSingleNotification,
@@ -288,7 +208,4 @@ export const NotificationController = {
   deleteNotification,
   adminDeleteSingleNotification,
   adminDeleteNotification,
-  getMessageNotifications,
-  readMessageNotifications,
-  deleteMessageNotifications,
 };

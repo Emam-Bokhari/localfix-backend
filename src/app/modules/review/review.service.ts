@@ -4,8 +4,6 @@ import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import { USER_ROLES } from "../../../enums/user";
 import { User } from "../user/user.model";
-import { NOTIFICATION_TYPE } from "../notification/notification.constant";
-import { sendNotifications } from "../../../helpers/notificationsHelper";
 import QueryBuilder from "../../builder/queryBuilder";
 import { reviewSearchableFields } from "./review.constant";
 import {
@@ -66,23 +64,6 @@ const createReviewIntoDB = async (
   };
 
   const createdReview = await Review.create(reviewData);
-
-  try {
-    const reviewer = await User.findById(homeownerId);
-    const reviewerName = reviewer?.name || "A homeowner";
-
-    await sendNotifications({
-      receiver: new Types.ObjectId(payload.contractor),
-      sender: new Types.ObjectId(homeownerId),
-      type: NOTIFICATION_TYPE.REVIEW_UPDATE,
-      title: "New Rating & Review Received",
-      text: `${reviewerName} gave you a ${payload.rating}-star review.`,
-      referenceId: createdReview._id,
-      referenceModel: "Review",
-    });
-  } catch (error) {
-    console.error("Error sending review notification:", error);
-  }
 
   const populatedReview = await Review.findById(createdReview._id)
     .populate({
