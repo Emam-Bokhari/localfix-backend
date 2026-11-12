@@ -20,6 +20,21 @@ const getProfessionalsByCategory = catchAsync(
   },
 );
 
+const getProfessionalDetails = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ServiceService.getProfessionalDetailsFromDB(
+      req.params.professionalId,
+    );
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Professional details retrieved successfully",
+      data: result,
+    });
+  },
+);
+
 const createService = catchAsync(async (req: Request, res: Response) => {
   const { id: professionalId } = req.user as { id: string };
   const result = await ServiceService.createServiceToDB(
@@ -99,6 +114,7 @@ const deleteMyService = catchAsync(async (req: Request, res: Response) => {
 
 export const ServiceController = {
   getProfessionalsByCategory,
+  getProfessionalDetails,
   createService,
   getMyServices,
   getMyServiceById,

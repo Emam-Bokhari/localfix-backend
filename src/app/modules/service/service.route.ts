@@ -13,6 +13,12 @@ router.get(
   ServiceController.getProfessionalsByCategory,
 );
 
+router.get(
+  "/professionals/:professionalId",
+  optionalAuth(),
+  ServiceController.getProfessionalDetails,
+);
+
 router
   .route("/")
   .post(

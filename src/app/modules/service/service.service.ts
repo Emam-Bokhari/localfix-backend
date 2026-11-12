@@ -5,6 +5,8 @@ import ApiError from "../../../errors/ApiErrors";
 import { escapeRegex } from "../../../helpers/searchHelper";
 import QueryBuilder from "../../builder/queryBuilder";
 import { Category } from "../category/category.model";
+import { Review } from "../review/review.model";
+import { User } from "../user/user.model";
 import { IService } from "./service.interface";
 import { Service } from "./service.model";
 
@@ -247,6 +249,115 @@ const getProfessionalsByCategoryFromDB = async (
   return { data };
 };
 
+type TPopulatedCategory = {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  icon?: string;
+  coverImage?: string;
+};
+
+const buildCategoryTabs = (items: Array<{ category?: unknown }>) => {
+  const categoryMap = new Map<
+    string,
+    TPopulatedCategory & { count: number }
+  >();
+
+  for (const item of items) {
+    const cat = item.category as TPopulatedCategory | null | undefined;
+    if (!cat || typeof cat !== "object" || !cat._id) {
+      continue;
+    }
+
+    const key = cat._id.toString();
+    const existing = categoryMap.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      categoryMap.set(key, {
+        _id: cat._id,
+        name: cat.name,
+        icon: cat.icon,
+        coverImage: cat.coverImage,
+        count: 1,
+      });
+    }
+  }
+
+  return Array.from(categoryMap.values());
+};
+
+const getProfessionalDetailsFromDB = async (professionalId: string) => {
+  assertValidObjectId(professionalId, "professional");
+
+  const professional = await User.findOne({
+    _id: professionalId,
+    role: USER_ROLES.PROFESSIONAL,
+    status: STATUS.ACTIVE,
+    approvalStatus: APPROVAL_STATUS.APPROVED,
+  })
+    .select(
+      "name companyName profileImage verified category about yearsOfExperience serviceRadiusInMiles city state zipCode streetAddress location timezone businessHours acceptedPayments projectPhotos backgroundCheck.passed tradeLicense.isVerified liabilityInsurance.isVerified createdAt",
+    )
+    .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
+    .lean();
+
+  if (!professional) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Professional not found");
+  }
+
+  const [services, reviewSummary, reviews] = await Promise.all([
+    Service.find({ professional: professionalId })
+      .populate("category", "name icon coverImage")
+      .sort({ createdAt: -1 })
+      .lean(),
+    Review.calculateAverageRating(professionalId),
+    Review.find({ contractor: professionalId })
+      .populate({
+        path: "tenant",
+        select: "name profileImage city state",
+      })
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  const projectPhotos = professional.projectPhotos || [];
+
+  return {
+    _id: professional._id,
+    name: professional.name,
+    companyName: professional.companyName,
+    profileImage: professional.profileImage,
+    verified: professional.verified,
+    isBackgroundVerified: Boolean(professional.backgroundCheck?.passed),
+    isLicenseVerified: Boolean(professional.tradeLicense?.isVerified),
+    isInsuranceVerified: Boolean(professional.liabilityInsurance?.isVerified),
+    category: professional.category || null,
+    about: professional.about || "",
+    yearsOfExperience: professional.yearsOfExperience || "",
+    serviceRadiusInMiles: professional.serviceRadiusInMiles ?? null,
+    city: professional.city || "",
+    state: professional.state || "",
+    zipCode: professional.zipCode || "",
+    streetAddress: professional.streetAddress || "",
+    location: professional.location || null,
+    timezone: professional.timezone || "",
+    businessHours: professional.businessHours || null,
+    acceptedPayments: professional.acceptedPayments || [],
+    averageRating: reviewSummary.averageRating,
+    totalReviews: reviewSummary.totalReviews,
+    ratingDistribution: reviewSummary.ratingDistribution,
+    serviceCount: services.length,
+    serviceCategories: buildCategoryTabs(services),
+    services,
+    photoCount: projectPhotos.length,
+    photoCategories: buildCategoryTabs(projectPhotos),
+    projectPhotos,
+    reviews,
+    createdAt: professional.createdAt,
+  };
+};
+
 const createServiceToDB = async (
   professionalId: string,
   payload: { name: string; category: string; description: string },
@@ -401,6 +512,7 @@ const deleteMyServiceFromDB = async (professionalId: string, id: string) => {
 
 export const ServiceService = {
   getProfessionalsByCategoryFromDB,
+  getProfessionalDetailsFromDB,
   createServiceToDB,
   getMyServicesFromDB,
   getMyServiceByIdFromDB,
