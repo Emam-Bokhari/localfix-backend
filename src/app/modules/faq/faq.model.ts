@@ -2,6 +2,7 @@ import { model, Schema } from "mongoose";
 import { TFaq, FaqModel } from "./faq.interface";
 import { softDeletePlugin } from "../../../DB/plugins/softDeletePlugin";
 import { USER_ROLES } from "../../../enums/user";
+import { FAQ_ROLES } from "./faq.constant";
 
 const faqSchema = new Schema<TFaq>(
   {
@@ -17,11 +18,15 @@ const faqSchema = new Schema<TFaq>(
     },
     role: {
       type: String,
-      enum: Object.values(USER_ROLES),
+      enum: FAQ_ROLES,
       default: USER_ROLES.HOME_OWNER,
       required: true,
       trim: true,
       lowercase: true,
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
   },
   {
@@ -30,7 +35,7 @@ const faqSchema = new Schema<TFaq>(
   },
 );
 
-faqSchema.index({ role: 1 });
+faqSchema.index({ role: 1, order: 1 });
 
 faqSchema.plugin(softDeletePlugin);
 

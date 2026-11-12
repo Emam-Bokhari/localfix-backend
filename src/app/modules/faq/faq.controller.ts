@@ -4,9 +4,16 @@ import sendResponse from "../../../shared/sendResponse";
 import { FaqService } from "./faq.service";
 
 const createFaq = catchAsync(async (req: Request, res: Response) => {
-  const role = req.body.role || req.query.role;
+  const { type, category, ...rest } = req.body;
+  const role =
+    req.body.role ||
+    type ||
+    category ||
+    req.query.role ||
+    req.query.type ||
+    req.query.category;
   const payload = {
-    ...req.body,
+    ...rest,
     ...(role ? { role } : {}),
   };
   const result = await FaqService.createFaqToDB(payload);
@@ -45,7 +52,12 @@ const getFaqById = catchAsync(async (req: Request, res: Response) => {
 
 const updateFaq = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id;
-  const payload = req.body;
+  const { type, category, ...rest } = req.body;
+  const role = req.body.role || type || category;
+  const payload = {
+    ...rest,
+    ...(role ? { role } : {}),
+  };
   const result = await FaqService.updateFaqToDB(id, payload);
 
   sendResponse(res, {

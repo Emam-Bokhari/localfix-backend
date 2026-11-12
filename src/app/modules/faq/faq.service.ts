@@ -4,15 +4,29 @@ import mongoose from "mongoose";
 import ApiError from "../../../errors/ApiErrors";
 import { TFaq } from "./faq.interface";
 import QueryBuilder from "../../builder/queryBuilder";
-import { faqSearchableFields, normalizeFaqRole } from "./faq.constant";
+import {
+  faqSearchableFields,
+  normalizeFaqRole,
+  TFaqRole,
+} from "./faq.constant";
 import { USER_ROLES } from "../../../enums/user";
 
 const createFaqToDB = async (payload: Partial<TFaq>) => {
-  if (payload.role) {
-    payload.role = normalizeFaqRole(payload.role) as USER_ROLES;
+  const role = payload.role
+    ? (normalizeFaqRole(payload.role) as TFaqRole)
+    : USER_ROLES.HOME_OWNER;
+
+  let order = payload.order;
+  if (order === undefined) {
+    const lastFaq = await Faq.findOne({ role }).sort({ order: -1 }).lean();
+    order = lastFaq && typeof lastFaq.order === "number" ? lastFaq.order + 1 : 1;
   }
 
-  const faq = await Faq.create(payload);
+  const faq = await Faq.create({
+    ...payload,
+    role,
+    order,
+  });
   if (!faq) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Failed to create Faq");
   }
@@ -21,11 +35,17 @@ const createFaqToDB = async (payload: Partial<TFaq>) => {
 };
 
 const faqsFromDB = async (query: Record<string, unknown> = {}) => {
-  const queryObj = { ...query };
+  const queryObj: Record<string, unknown> = {
+    sort: "order createdAt",
+    ...query,
+  };
 
-  // Normalize role if provided in query params (e.g. ?role=landlords or ?role=landlord)
-  if (queryObj.role) {
-    queryObj.role = normalizeFaqRole(queryObj.role);
+  // Support role, type, or category query aliases (e.g. ?role=customer, ?type=pro_contractor)
+  const rawRole = queryObj.role ?? queryObj.type ?? queryObj.category;
+  delete queryObj.type;
+  delete queryObj.category;
+  if (rawRole) {
+    queryObj.role = normalizeFaqRole(rawRole);
   }
 
   const queryBuilder = new QueryBuilder(Faq.find(), queryObj)
@@ -65,7 +85,7 @@ const updateFaqToDB = async (id: string, payload: Partial<TFaq>) => {
   }
 
   if (payload.role) {
-    payload.role = normalizeFaqRole(payload.role) as USER_ROLES;
+    payload.role = normalizeFaqRole(payload.role) as TFaqRole;
   }
 
   const updatedFaq = await Faq.findByIdAndUpdate({ _id: id }, payload, {

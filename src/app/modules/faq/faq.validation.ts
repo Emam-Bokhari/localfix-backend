@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { USER_ROLES } from "../../../enums/user";
-import { normalizeFaqRole } from "./faq.constant";
+import { FAQ_ROLES, normalizeFaqRole } from "./faq.constant";
 
 const roleSchema = z.preprocess(
   (val) => {
@@ -9,9 +8,9 @@ const roleSchema = z.preprocess(
     }
     return val;
   },
-  z.nativeEnum(USER_ROLES, {
+  z.enum(FAQ_ROLES, {
     errorMap: () => ({
-      message: `Invalid role. Role must be one of: ${Object.values(USER_ROLES).join(", ")}`,
+      message: `Invalid role. Role must be one of: ${FAQ_ROLES.join(", ")}`,
     }),
   }),
 );
@@ -24,7 +23,10 @@ const createFaqZodSchema = z.object({
     answer: z
       .string({ required_error: "Answer is required" })
       .min(1, "Answer cannot be empty"),
-    role: roleSchema.optional().default(USER_ROLES.HOME_OWNER),
+    role: roleSchema.optional(),
+    type: roleSchema.optional(),
+    category: roleSchema.optional(),
+    order: z.number().int().min(0).optional(),
   }),
 });
 
@@ -33,6 +35,9 @@ const updateFaqZodSchema = z.object({
     question: z.string().min(1, "Question cannot be empty").optional(),
     answer: z.string().min(1, "Answer cannot be empty").optional(),
     role: roleSchema.optional(),
+    type: roleSchema.optional(),
+    category: roleSchema.optional(),
+    order: z.number().int().min(0).optional(),
   }),
 });
 
