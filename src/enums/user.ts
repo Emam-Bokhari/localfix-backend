@@ -1,9 +1,8 @@
 export enum USER_ROLES {
   ADMIN = "admin",
   SUPER_ADMIN = "super_admin",
-  LANDLORD = "landlord",
-  TENANT = "tenant",
-  CONTRACTOR = "contractor",
+  HOME_OWNER = "home_owner",
+  PROFESSIONAL = "professional",
 }
 
 export enum GENDER {

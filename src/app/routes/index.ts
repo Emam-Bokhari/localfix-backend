@@ -28,6 +28,7 @@ import { SubscriptionRoutes } from "../modules/subscription/subscription.routes"
 import { LandlordRoutes } from "../modules/landlord/landlord.routes";
 import { AdminRoutes } from "../modules/admin/admin.routes";
 import { ReviewRoutes } from "../modules/review/review.routes";
+import { CategoryRoutes } from "../modules/category/category.route";
 
 const router = express.Router();
 
@@ -148,6 +149,10 @@ const apiRoutes = [
   {
     path: "/reviews",
     route: ReviewRoutes,
+  },
+  {
+    path: "/categories",
+    route: CategoryRoutes,
   },
 ];
 

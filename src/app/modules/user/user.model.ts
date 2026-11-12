@@ -1,7 +1,6 @@
 import { model, Schema } from "mongoose";
 import { GENDER, STATUS, USER_ROLES } from "../../../enums/user";
 import { IUser, IUserModel } from "./user.interface";
-import { PRIMARY_TRADE } from "./user.constant";
 import bcrypt from "bcrypt";
 import config from "../../../config";
 import { softDeletePlugin } from "../../../DB/plugins/softDeletePlugin";
@@ -16,7 +15,7 @@ const userSchema = new Schema<IUser, IUserModel>(
     role: {
       type: String,
       enum: Object.values(USER_ROLES),
-      default: USER_ROLES.LANDLORD,
+      default: USER_ROLES.HOME_OWNER,
     },
     email: {
       type: String,
@@ -50,6 +49,26 @@ const userSchema = new Schema<IUser, IUserModel>(
       enum: Object.values(STATUS),
       default: STATUS.ACTIVE,
     },
+    about: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    serviceRadiusInMiles: {
+      type: Number,
+      required: false,
+    },
+    yearsOfExperience: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    category: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: false,
+      default: null,
+    },
     phone: {
       type: String,
       required: false,
@@ -63,11 +82,6 @@ const userSchema = new Schema<IUser, IUserModel>(
       unique: true,
       sparse: true,
     },
-    userName: {
-      type: String,
-      unique: true,
-      sparse: true,
-    },
     deviceToken: {
       type: String,
       required: false,
@@ -76,55 +90,39 @@ const userSchema = new Schema<IUser, IUserModel>(
       type: Boolean,
       default: false,
     },
-    address: {
+    state: {
       type: String,
       required: false,
+      trim: true,
     },
-    homeAddress: {
+    city: {
       type: String,
       required: false,
+      trim: true,
     },
-    emergencyPhone: {
+    zipCode: {
       type: String,
       required: false,
-    },
-    emergencyContact: {
-      type: String,
-      required: false,
-    },
-    nidNumber: {
-      type: Schema.Types.Mixed,
-      required: false,
-    },
-    nidPhoto: {
-      type: String,
-      required: false,
-      default: "",
+      trim: true,
     },
     companyName: {
       type: String,
       required: false,
     },
-    primaryTrade: {
-      type: String,
-      enum: Object.values(PRIMARY_TRADE),
-      required: false,
-    },
-    certificates: [
-      {
-        certificateName: { type: String },
-        certificateAttachment: { type: String },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
       },
-    ],
-    property: {
-      type: Schema.Types.ObjectId,
-      ref: "Property",
-      default: null,
-    },
-    flat: {
-      type: Schema.Types.ObjectId,
-      ref: "Flat",
-      default: null,
+      coordinates: {
+        type: [Number],
+        default: [0, 0],
+      },
+      address: {
+        type: String,
+        default: "",
+      },
     },
     authentication: {
       type: {
@@ -198,12 +196,6 @@ userSchema.statics.isMatchPassword = async (
 
 // hash password pre-save
 userSchema.pre("save", async function (next) {
-  if (this.emergencyContact && !this.emergencyPhone) {
-    this.emergencyPhone = this.emergencyContact;
-  } else if (this.emergencyPhone && !this.emergencyContact) {
-    this.emergencyContact = this.emergencyPhone;
-  }
-
   if (this.isModified("password") && this.password) {
     this.password = await bcrypt.hash(
       this.password,
@@ -215,5 +207,6 @@ userSchema.pre("save", async function (next) {
 
 userSchema.index({ role: 1 });
 userSchema.index({ role: 1, status: 1 });
+userSchema.index({ location: "2dsphere" });
 
 export const User = model<IUser, IUserModel>("User", userSchema);

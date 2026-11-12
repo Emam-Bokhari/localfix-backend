@@ -18,24 +18,24 @@ export type IUser = {
   phone?: string;
   countryCode?: string;
   status: STATUS;
+  about?:string;
+  serviceRadiusInMiles?:number;
+  yearsOfExperience?:string;
+  category?:Types.ObjectId;
   firebaseUid?: string;
   gender?: GENDER;
-  userName?: string;
   deviceToken?: string;
-  address?: string;
+  state?:string;
+  city?:string;
+  zipCode?:string;
+    location?: {
+    type: "Point";
+    coordinates: [number, number]; // [longitude, latitude],
+    address: string;
+  };
   timezone?: string;
   dateOfBirth?: string | Date;
-  
-  nidNumber?: string | number;
-  nidPhoto?: string;
-  emergencyPhone?: string;
-  emergencyContact?: string;
-  homeAddress?: string;
-  certificates?: TCertificate[];
   companyName?: string;
-  primaryTrade?: PRIMARY_TRADE;
-  property?: Types.ObjectId;
-  flat?: Types.ObjectId;
   authentication?: {
     isResetPassword?: boolean;
     oneTimeCode?: number | null;

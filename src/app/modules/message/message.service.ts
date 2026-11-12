@@ -2,7 +2,6 @@ import ApiError from "../../../errors/ApiErrors";
 import { Chat } from "../chat/chat.model";
 import { IMessage } from "./message.interface";
 import { Message } from "./message.model";
-import { Types } from "mongoose";
 import { chatSocketHelper } from "../chat/socket/chat.socket";
 import { chatPermissionHelper } from "../chat/helpers/chatPermission.helper";
 import { CHAT_COMMUNICATION_TYPE } from "../../../enums/chat";
@@ -192,8 +191,7 @@ const getMessagesFromDB = async (
   const response = await Message.find({ chatId })
     .populate({
       path: "sender",
-      select:
-        "name role activeRole email profileImage companyName primaryTrade",
+      select: "name role activeRole email profileImage companyName primaryTrade"
     })
     .populate({
       path: "pinnedBy",
@@ -283,7 +281,7 @@ const deleteMessage = async (userId: string, messageId: string) => {
       {
         $set: {
           isDeleted: true,
-          isPinned: false, // Unpin message when deleted
+          isPinned: false, // unpin message when deleted
           pinnedBy: undefined,
           pinnedAt: undefined,
         },
@@ -291,7 +289,7 @@ const deleteMessage = async (userId: string, messageId: string) => {
       { new: true },
     );
 
-    // If message was pinned, also remove from chat's pinnedMessages
+    // if message was pinned, also remove from chat's pinnedMessages
     if (message.isPinned) {
       await Chat.findByIdAndUpdate(message.chatId, {
         $pull: { pinnedMessages: messageId },
@@ -305,7 +303,7 @@ const deleteMessage = async (userId: string, messageId: string) => {
   }
 };
 
-// New feature: Pin/Unpin message
+// new feature: Pin/Unpin message
 const pinUnpinMessage = async (
   userId: string,
   messageId: string,
@@ -317,7 +315,7 @@ const pinUnpinMessage = async (
       throw new ApiError(404, "Message not found");
     }
 
-    // Check if user is participant in the chat
+    // check if user is participant in the chat
     const chat = await Chat.findById(message.chatId);
     if (!chat || !chat.participants.some((p) => p.toString() === userId)) {
       throw new ApiError(
@@ -327,12 +325,12 @@ const pinUnpinMessage = async (
     }
 
     if (action === "pin") {
-      // Check if message is already pinned
+      // check if message is already pinned
       if (message.isPinned) {
         throw new ApiError(400, "Message is already pinned");
       }
 
-      // Check pinned messages limit (optional - limit to 10 pinned messages per chat)
+      // check pinned messages limit (optional - limit to 10 pinned messages per chat)
       const pinnedCount = await Message.countDocuments({
         chatId: message.chatId,
         isPinned: true,
@@ -373,7 +371,7 @@ const pinUnpinMessage = async (
 
       return updatedMessage;
     } else {
-      // Unpin the message
+      // unpin the message
       if (!message.isPinned) {
         throw new ApiError(400, "Message is not pinned");
       }
@@ -389,6 +387,8 @@ const pinUnpinMessage = async (
         },
         { new: true },
       );
+
+      // 
 
       // Remove from chat's pinnedMessages array
       await Chat.findByIdAndUpdate(message.chatId, {

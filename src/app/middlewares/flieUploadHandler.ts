@@ -137,6 +137,17 @@ export const FILE_CONFIG = {
     maxCount: 1,
     mimeTypes: new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]),
   },
+  icon: {
+    dir: "icon",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+    ]),
+  },
   tradeLicense: {
     dir: "tradeLicense",
     maxCount: 1,

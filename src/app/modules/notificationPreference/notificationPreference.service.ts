@@ -30,7 +30,6 @@ const formatRoleNotificationPreferences = (
 
   switch (normalizedRole) {
     case USER_ROLES.LANDLORD:
-      // 1st screenshot: Landlord
       rolePreferences = {
         rentReminders: safePref.rentReminders,
         maintenanceUpdates: safePref.maintenanceUpdates,
@@ -56,7 +55,6 @@ const formatRoleNotificationPreferences = (
       break;
 
     case USER_ROLES.TENANT:
-      // 2nd screenshot: Tenant
       rolePreferences = {
         maintenanceUpdates: safePref.maintenanceUpdates,
         newMessages: safePref.newMessages,
@@ -82,7 +80,6 @@ const formatRoleNotificationPreferences = (
       break;
 
     case USER_ROLES.CONTRACTOR:
-      // 3rd screenshot: Contractor
       rolePreferences = {
         jobUpdates: safePref.jobUpdates,
         newMessages: safePref.newMessages,
@@ -172,7 +169,7 @@ const getNotificationPreferenceByUser = async (user: JwtPayload) => {
   return formatRoleNotificationPreferences(result, userRole);
 };
 
-// update notification preference (creates if not exists)
+// get notification
 const updateNotificationPreference = async (
   user: JwtPayload,
   payload: Partial<INotificationPreference>,
