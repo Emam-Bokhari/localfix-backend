@@ -351,7 +351,7 @@ const getProfessionalDetailsFromDB = async (professionalId: string) => {
     serviceCategories: buildCategoryTabs(services),
     services,
     photoCount: projectPhotos.length,
-    photoCategories: buildCategoryTabs(projectPhotos),
+    categories: buildCategoryTabs(projectPhotos),
     projectPhotos,
     reviews,
     createdAt: professional.createdAt,
