@@ -17,6 +17,7 @@ import { AdminRoutes } from "../modules/admin/admin.routes";
 import { ReviewRoutes } from "../modules/review/review.routes";
 import { CategoryRoutes } from "../modules/category/category.route";
 import { CheckrRoutes } from "../modules/checkr/checkr.route";
+import { MarqueeRoutes } from "../modules/marquee/marquee.route";
 
 const router = express.Router();
 
@@ -92,6 +93,10 @@ const apiRoutes = [
   {
     path: "/checkr",
     route: CheckrRoutes,
+  },
+  {
+    path: "/marquees",
+    route: MarqueeRoutes,
   },
 ];
 
