@@ -4,6 +4,22 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { ServiceService } from "./service.service";
 
+const getProfessionalsByCategory = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ServiceService.getProfessionalsByCategoryFromDB(
+      req.query,
+    );
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Professionals retrieved successfully",
+      meta: result.meta,
+      data: result.data,
+    });
+  },
+);
+
 const createService = catchAsync(async (req: Request, res: Response) => {
   const { id: professionalId } = req.user as { id: string };
   const result = await ServiceService.createServiceToDB(
@@ -82,6 +98,7 @@ const deleteMyService = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const ServiceController = {
+  getProfessionalsByCategory,
   createService,
   getMyServices,
   getMyServiceById,

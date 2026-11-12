@@ -1,6 +1,7 @@
 import express from "express";
 import { isAdmin } from "../../../helpers/authHelper";
 import fileUploadHandler from "../../middlewares/flieUploadHandler";
+import optionalAuth from "../../middlewares/optionalAuth";
 import { parseFileData } from "../../middlewares/parseFileData";
 import validateRequest from "../../middlewares/validateRequest";
 import { CategoryController } from "./category.controller";
@@ -24,11 +25,11 @@ router
     validateRequest(CategoryValidation.createCategoryZodSchema),
     CategoryController.createCategory,
   )
-  .get(CategoryController.getAllCategories);
+  .get(optionalAuth(), CategoryController.getAllCategories);
 
 router
   .route("/:id")
-  .get(CategoryController.getCategoryById)
+  .get(optionalAuth(), CategoryController.getCategoryById)
   .patch(
     isAdmin,
     ...uploadCategoryFiles,

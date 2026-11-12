@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 import { StatusCodes } from "http-status-codes";
+import { USER_ROLES } from "../../../enums/user";
 import ApiError from "../../../errors/ApiErrors";
 import { escapeRegex } from "../../../helpers/searchHelper";
 import unlinkFile from "../../../shared/unlinkFile";
 import QueryBuilder from "../../builder/queryBuilder";
 import { ICategory } from "./category.interface";
 import { Category } from "./category.model";
+
+const isAdminRole = (role?: string) =>
+  role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
 
 const cleanupFiles = (payload: Partial<ICategory>) => {
   if (payload.coverImage) unlinkFile(payload.coverImage);
@@ -40,13 +44,25 @@ const createCategoryToDB = async (
 
 const getAllCategoriesFromDB = async (
   query: Record<string, unknown> = {},
+  userRole?: string,
 ) => {
-  const queryBuilder = new QueryBuilder(Category.find(), query)
+  const normalizedQuery = { ...query };
+  const baseFilter: Record<string, unknown> = {};
+
+  if (!isAdminRole(userRole)) {
+    baseFilter.isActive = true;
+    delete normalizedQuery.isActive;
+  }
+
+  const queryBuilder = new QueryBuilder(
+    Category.find(baseFilter),
+    normalizedQuery,
+  )
     .search(["name"])
     .filter()
     .sort();
 
-  if (query.page || query.limit) {
+  if (normalizedQuery.page || normalizedQuery.limit) {
     queryBuilder.paginate();
     const [data, meta] = await Promise.all([
       queryBuilder.modelQuery.lean(),
@@ -59,11 +75,11 @@ const getAllCategoriesFromDB = async (
   return { data };
 };
 
-const getCategoryByIdFromDB = async (id: string) => {
+const getCategoryByIdFromDB = async (id: string, userRole?: string) => {
   assertValidObjectId(id);
 
   const category = await Category.findById(id).lean();
-  if (!category) {
+  if (!category || (!isAdminRole(userRole) && !category.isActive)) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Category not found");
   }
 

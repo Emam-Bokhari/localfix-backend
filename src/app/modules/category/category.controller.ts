@@ -16,7 +16,11 @@ const createCategory = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllCategories = catchAsync(async (req: Request, res: Response) => {
-  const result = await CategoryService.getAllCategoriesFromDB(req.query);
+  const userRole = (req.user as { role?: string } | undefined)?.role;
+  const result = await CategoryService.getAllCategoriesFromDB(
+    req.query,
+    userRole,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -28,7 +32,11 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getCategoryById = catchAsync(async (req: Request, res: Response) => {
-  const result = await CategoryService.getCategoryByIdFromDB(req.params.id);
+  const userRole = (req.user as { role?: string } | undefined)?.role;
+  const result = await CategoryService.getCategoryByIdFromDB(
+    req.params.id,
+    userRole,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

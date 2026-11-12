@@ -1,10 +1,17 @@
 import express from "express";
 import { isProfessional } from "../../../helpers/authHelper";
+import optionalAuth from "../../middlewares/optionalAuth";
 import validateRequest from "../../middlewares/validateRequest";
 import { ServiceController } from "./service.controller";
 import { ServiceValidation } from "./service.validation";
 
 const router = express.Router();
+
+router.get(
+  "/professionals",
+  optionalAuth(),
+  ServiceController.getProfessionalsByCategory,
+);
 
 router
   .route("/")

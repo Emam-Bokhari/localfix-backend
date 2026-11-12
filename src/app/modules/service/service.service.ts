@@ -1,5 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, { PipelineStage } from "mongoose";
 import { StatusCodes } from "http-status-codes";
+import { APPROVAL_STATUS, STATUS, USER_ROLES } from "../../../enums/user";
 import ApiError from "../../../errors/ApiErrors";
 import { escapeRegex } from "../../../helpers/searchHelper";
 import QueryBuilder from "../../builder/queryBuilder";
@@ -13,13 +14,21 @@ const assertValidObjectId = (id: string, label = "service") => {
   }
 };
 
-const assertCategoryExists = async (categoryId: string) => {
+const assertCategoryExists = async (
+  categoryId: string,
+  requireActive = false,
+) => {
   assertValidObjectId(categoryId, "category");
 
-  const category = await Category.findOne({
+  const filter: Record<string, unknown> = {
     _id: categoryId,
     isDeleted: { $ne: true },
-  }).lean();
+  };
+  if (requireActive) {
+    filter.isActive = true;
+  }
+
+  const category = await Category.findOne(filter).lean();
 
   if (!category) {
     throw new ApiError(
@@ -29,6 +38,201 @@ const assertCategoryExists = async (categoryId: string) => {
   }
 
   return category;
+};
+
+const getProfessionalsByCategoryFromDB = async (
+  query: Record<string, unknown> = {},
+) => {
+  const rawCategoryId = (query.category || query.categoryId) as
+    | string
+    | undefined;
+  const categoryId = rawCategoryId?.trim();
+
+  const matchStage: Record<string, unknown> = {};
+  if (categoryId) {
+    await assertCategoryExists(categoryId, true);
+    matchStage.category = new mongoose.Types.ObjectId(categoryId);
+  }
+
+  const pipeline: PipelineStage[] = [];
+  if (Object.keys(matchStage).length > 0) {
+    pipeline.push({ $match: matchStage });
+  }
+
+  pipeline.push(
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: "$professional",
+        serviceCount: { $sum: 1 },
+        categoryIds: { $addToSet: "$category" },
+        services: {
+          $push: {
+            _id: "$_id",
+            name: "$name",
+            category: "$category",
+            description: "$description",
+          },
+        },
+        latestServiceAt: { $max: "$createdAt" },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        let: { professionalId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$_id", "$$professionalId"] },
+              role: USER_ROLES.PROFESSIONAL,
+              status: STATUS.ACTIVE,
+              approvalStatus: { $eq: APPROVAL_STATUS.APPROVED },
+              isDeleted: { $ne: true },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              companyName: 1,
+              profileImage: 1,
+              verified: 1,
+              city: 1,
+              state: 1,
+              zipCode: 1,
+              location: 1,
+              about: 1,
+              yearsOfExperience: 1,
+              serviceRadiusInMiles: 1,
+              isBackgroundVerified: {
+                $ifNull: ["$backgroundCheck.passed", false],
+              },
+              isLicenseVerified: {
+                $ifNull: ["$tradeLicense.isVerified", false],
+              },
+            },
+          },
+        ],
+        as: "professional",
+      },
+    },
+    { $unwind: "$professional" },
+    {
+      $lookup: {
+        from: "categories",
+        let: { categoryIds: "$categoryIds" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $in: ["$_id", "$$categoryIds"] },
+              isDeleted: { $ne: true },
+              isActive: true,
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              coverImage: 1,
+              icon: 1,
+            },
+          },
+        ],
+        as: "categories",
+      },
+    },
+    { $match: { "categories.0": { $exists: true } } },
+    {
+      $lookup: {
+        from: "reviews",
+        let: { professionalId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$contractor", "$$professionalId"] },
+            },
+          },
+          {
+            $group: {
+              _id: "$contractor",
+              totalReviews: { $sum: 1 },
+              averageRating: { $avg: "$rating" },
+            },
+          },
+        ],
+        as: "reviewStats",
+      },
+    },
+    {
+      $addFields: {
+        reviewSummary: { $arrayElemAt: ["$reviewStats", 0] },
+      },
+    },
+    {
+      $project: {
+        _id: "$professional._id",
+        name: "$professional.name",
+        companyName: "$professional.companyName",
+        profileImage: "$professional.profileImage",
+        verified: "$professional.verified",
+        isBackgroundVerified: "$professional.isBackgroundVerified",
+        isLicenseVerified: "$professional.isLicenseVerified",
+        city: "$professional.city",
+        state: "$professional.state",
+        zipCode: "$professional.zipCode",
+        location: "$professional.location",
+        about: "$professional.about",
+        yearsOfExperience: "$professional.yearsOfExperience",
+        serviceRadiusInMiles: "$professional.serviceRadiusInMiles",
+        averageRating: {
+          $round: [{ $ifNull: ["$reviewSummary.averageRating", 0] }, 1],
+        },
+        totalReviews: { $ifNull: ["$reviewSummary.totalReviews", 0] },
+        serviceCount: 1,
+        categories: 1,
+        services: 1,
+        latestServiceAt: 1,
+      },
+    },
+    { $sort: { latestServiceAt: -1, _id: 1 } },
+  );
+
+  if (query.page || query.limit) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Number(query.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          { $project: { latestServiceAt: 0 } },
+        ],
+        totalCount: [{ $count: "total" }],
+      },
+    });
+
+    const [result] = await Service.aggregate(pipeline);
+    const data = result?.data || [];
+    const total = result?.totalCount?.[0]?.total || 0;
+    const totalPage = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPage,
+      },
+    };
+  }
+
+  pipeline.push({ $project: { latestServiceAt: 0 } });
+  const data = await Service.aggregate(pipeline);
+  return { data };
 };
 
 const createServiceToDB = async (
@@ -184,6 +388,7 @@ const deleteMyServiceFromDB = async (professionalId: string, id: string) => {
 };
 
 export const ServiceService = {
+  getProfessionalsByCategoryFromDB,
   createServiceToDB,
   getMyServicesFromDB,
   getMyServiceByIdFromDB,
