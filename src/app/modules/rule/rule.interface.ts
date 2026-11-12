@@ -4,8 +4,7 @@ export enum RULE_TYPE {
   PRIVACY = "privacy",
   TERMS = "terms",
   ABOUT = "about",
-  SAFETY = "safety",
-  GUIDELINES = "guidelines",
+  DISPUTE = "dispute",
 }
 
 export type TRule = {

@@ -104,7 +104,7 @@ const updateMarqueeToDB = async (id: string, payload: Partial<TMarquee>) => {
         "Service keyword already exists in marquee",
       );
     }
-
+    
     updateData.keyword = trimmedKeyword;
   }
 
