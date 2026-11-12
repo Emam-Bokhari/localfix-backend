@@ -18,6 +18,7 @@ import { ReviewRoutes } from "../modules/review/review.routes";
 import { CategoryRoutes } from "../modules/category/category.route";
 import { CheckrRoutes } from "../modules/checkr/checkr.route";
 import { MarqueeRoutes } from "../modules/marquee/marquee.route";
+import { SiteSettingsRoutes } from "../modules/siteSettings/siteSettings.route";
 
 const router = express.Router();
 
@@ -97,6 +98,10 @@ const apiRoutes = [
   {
     path: "/marquees",
     route: MarqueeRoutes,
+  },
+  {
+    path: "/site-settings",
+    route: SiteSettingsRoutes,
   },
 ];
 

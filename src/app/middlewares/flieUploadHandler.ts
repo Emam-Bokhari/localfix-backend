@@ -112,6 +112,41 @@ export const FILE_CONFIG = {
       "image/svg+xml",
     ]),
   },
+  headerLogo: {
+    dir: "headerLogo",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+    ]),
+  },
+  footerLogo: {
+    dir: "footerLogo",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+    ]),
+  },
+  favicon: {
+    dir: "favicon",
+    maxCount: 1,
+    mimeTypes: new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+      "image/x-icon",
+      "image/vnd.microsoft.icon",
+    ]),
+  },
   banner: {
     dir: "banner",
     maxCount: 5,
