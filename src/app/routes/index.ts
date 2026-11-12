@@ -9,7 +9,6 @@ import { SupportRoutes } from "../modules/support/support.route";
 import { BannerRoutes } from "../modules/banner/banner.route";
 import { NotificationRoutes } from "../modules/notification/notification.routes";
 import { FcmTokenRoutes } from "../modules/fcmToken/fcmToken.route";
-import { NotificationPreferenceRoutes } from "../modules/notificationPreference/notificationPreference.route";
 import { WebhookRoutes } from "../modules/webhook/webhook.routes";
 import { PackageRoutes } from "../modules/package/package.routes";
 import { SubscriptionRoutes } from "../modules/subscription/subscription.routes";
@@ -62,10 +61,6 @@ const apiRoutes = [
   {
     path: "/fcmTokens",
     route: FcmTokenRoutes,
-  },
-  {
-    path: "/notification-preferences",
-    route: NotificationPreferenceRoutes,
   },
   {
     path: "/webhook",

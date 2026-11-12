@@ -6,7 +6,6 @@ import colors from "colors";
 import { DeviceToken } from "../modules/fcmToken/fcmToken.model";
 import { firebaseAdmin } from "../../config/firebase";
 import { NOTIFICATION_TYPE } from "../modules/notification/notification.constant";
-import { NotificationPreference } from "../modules/notificationPreference/notificationPreference.model";
 import { emailHelper } from "../../helpers/emailHelper";
 import { emailTemplate } from "../../shared/emailTemplate";
 
@@ -52,58 +51,16 @@ class NotificationHelper {
       const validUserIds = validUsers.map((u) => u._id);
 
       if (validUserIds.length === 0) return;
-
-      // 2. Fetch Notification Preferences for these users
-      const preferences = await NotificationPreference.find({
-        userId: { $in: validUserIds },
-      }).lean();
-
-      const prefMap = new Map<string, any>();
-      preferences.forEach((p) => {
-        prefMap.set(p.userId.toString(), p);
-      });
-
-      const prefTypeMap: Record<string, string> = {
-        [NOTIFICATION_TYPE.MESSAGE_NEW]: "newMessages",
-        [NOTIFICATION_TYPE.RENT_REMINDER]: "rentReminders",
-        [NOTIFICATION_TYPE.MAINTENANCE_UPDATE]: "maintenanceUpdates",
-        [NOTIFICATION_TYPE.COMPLIANCE_ALERT]: "complianceAlerts",
-        [NOTIFICATION_TYPE.JOB_UPDATE]: "jobUpdates",
-      };
-
-      const preferenceKey =
-        payload.data?.preferenceCategory || prefTypeMap[payload.type];
-
-      // 3. Filter users based on preference configurations (All notifications are Push Notifications)
-      const dbSaveUserIds: mongoose.Types.ObjectId[] = [];
-      const pushUserIds: mongoose.Types.ObjectId[] = [];
-
-      for (const user of validUsers) {
-        const uIdStr = user._id.toString();
-        const userPref = prefMap.get(uIdStr);
-
-        // If preference key exists, check if user disabled this event
-        if (preferenceKey && userPref && userPref[preferenceKey] === false) {
-          continue; // Opted out of this event type completely
-        }
-
-        // Save to Database and send Push Notification
-        dbSaveUserIds.push(user._id);
-        pushUserIds.push(user._id);
-      }
-
-      // 4. Fetch FCM Tokens for users with push notifications
+      // 2. Fetch FCM Tokens for valid users
       let fcmTokens: string[] = [];
-      if (pushUserIds.length > 0) {
-        const tokensData = await DeviceToken.find({
-          userId: { $in: pushUserIds },
-          fcmToken: { $exists: true, $ne: "" },
-        })
-          .select("fcmToken")
-          .lean();
+      const tokensData = await DeviceToken.find({
+        userId: { $in: validUserIds },
+        fcmToken: { $exists: true, $ne: "" },
+      })
+        .select("fcmToken")
+        .lean();
 
-        fcmTokens = tokensData.map((t) => t.fcmToken);
-      }
+      fcmTokens = tokensData.map((t) => t.fcmToken);
 
       // --- PARALLEL EXECUTION START ---
       const tasks = [];
@@ -114,16 +71,14 @@ class NotificationHelper {
       }
 
       // TASK B: Save to Database
-      if (dbSaveUserIds.length > 0) {
-        tasks.push(this.saveToDatabase(dbSaveUserIds, payload));
-      }
+      tasks.push(this.saveToDatabase(validUserIds, payload));
 
       await Promise.allSettled(tasks);
       // --- PARALLEL EXECUTION END ---
 
       logger.info(
         colors.green(
-          `✅ Notification flow completed. DB save: ${dbSaveUserIds.length}, Push: ${pushUserIds.length}`,
+          `✅ Notification flow completed. DB save: ${validUserIds.length}, Push: ${validUserIds.length}`,
         ),
       );
     } catch (error) {
@@ -164,7 +119,6 @@ class NotificationHelper {
         body: bodyText.substring(0, 100),
         type: NOTIFICATION_TYPE.MESSAGE_NEW,
         data: {
-          preferenceCategory: "newMessages",
           type: NOTIFICATION_TYPE.MESSAGE_NEW,
           chatId: chat._id.toString(),
           messageId: message._id.toString(),

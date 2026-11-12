@@ -7,7 +7,7 @@ export enum NOTIFICATION_TYPE {
   TENANT = "tenant",
   CONTRACTOR = "contractor",
 
-  // Specific event notifications matching preference settings
+  // Specific event notifications
   RENT_REMINDER = "rent_reminder",
   MAINTENANCE_UPDATE = "maintenance_update",
   COMPLIANCE_ALERT = "compliance_alert",
