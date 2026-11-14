@@ -33,9 +33,10 @@ const createCheckoutSession = async (
 
   // Pick price ID based on billing interval
   let priceId =
-    planType === "yearly"
+    selectedPackage.stripePriceId ||
+    (planType === "yearly"
       ? selectedPackage.stripeYearlyPriceId
-      : selectedPackage.stripeMonthlyPriceId;
+      : selectedPackage.stripeMonthlyPriceId);
 
   // Auto-heal / generate real Stripe price if missing or not a live Stripe ID
   if (!priceId || !priceId.startsWith("price_")) {
@@ -53,9 +54,10 @@ const createCheckoutSession = async (
     }
 
     const priceAmount =
-      planType === "yearly"
-        ? selectedPackage.yearlyPrice
-        : selectedPackage.monthlyPrice;
+      selectedPackage.price ??
+      (planType === "yearly"
+        ? (selectedPackage.yearlyPrice ?? 0)
+        : (selectedPackage.monthlyPrice ?? 0));
 
     const newPrice = await stripe.prices.create({
       product: productId,
@@ -70,6 +72,7 @@ const createCheckoutSession = async (
       },
     });
 
+    selectedPackage.stripePriceId = newPrice.id;
     if (planType === "yearly") {
       selectedPackage.stripeYearlyPriceId = newPrice.id;
     } else {
@@ -218,20 +221,14 @@ const getMySubscriptionFromDB = async (userId: string) => {
     hasActiveSubscription: true,
     subscription,
     limits: {
-      maxProperties: pkg?.maxProperties ?? 0,
-      maxFlats: pkg?.maxFlats ?? 0,
+      leadLimit: pkg?.leadLimit ?? -1,
     },
     usage: {
-      propertiesCount: currentPropertiesCount,
-      flatsCount: currentFlatsCount,
-      propertiesRemaining:
-        pkg?.maxProperties === -1
+      leadLimit: pkg?.leadLimit ?? -1,
+      leadRemaining:
+        pkg?.leadLimit === -1 || pkg?.leadLimit === undefined
           ? "unlimited"
-          : Math.max(0, (pkg?.maxProperties || 0) - currentPropertiesCount),
-      flatsRemaining:
-        pkg?.maxFlats === -1
-          ? "unlimited"
-          : Math.max(0, (pkg?.maxFlats || 0) - currentFlatsCount),
+          : Math.max(0, (pkg?.leadLimit || 0)),
     },
   };
 };

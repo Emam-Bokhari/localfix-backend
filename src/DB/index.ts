@@ -3,6 +3,7 @@ import { User } from "../app/modules/user/user.model";
 import config from "../config";
 import { USER_ROLES } from "../enums/user";
 import { logger } from "../shared/logger";
+import { seedDefaultPackages } from "../app/modules/package/package.seed";
 
 const superUser = {
   name: "Super Admin",
@@ -22,10 +23,7 @@ const seedSuperAdmin = async () => {
   if (!existingUser) {
     await User.create(superUser);
     logger.info(colors.green("✔ Super admin created successfully!"));
-    return;
-  }
-
-  if (existingUser.role !== USER_ROLES.SUPER_ADMIN) {
+  } else if (existingUser.role !== USER_ROLES.SUPER_ADMIN) {
     existingUser.role = USER_ROLES.SUPER_ADMIN;
     existingUser.verified = true;
     if (!existingUser.phone) {
@@ -36,12 +34,13 @@ const seedSuperAdmin = async () => {
     }
 
     await existingUser.save();
-
     logger.info(colors.yellow("✔ Existing user promoted to Super Admin!"));
-    return;
+  } else {
+    logger.info(colors.cyan("✔ Super Admin already exists."));
   }
 
-  logger.info(colors.cyan("✔ Super Admin already exists."));
+  // Seed default subscription packages for LocalFix
+  await seedDefaultPackages();
 };
 
 export default seedSuperAdmin;

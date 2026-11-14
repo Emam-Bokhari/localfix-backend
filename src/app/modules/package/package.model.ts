@@ -12,38 +12,25 @@ const packageSchema = new Schema<IPackage, PackageModel>(
       type: String,
       trim: true,
     },
-    monthlyPrice: {
+    price: {
       type: Number,
       required: true,
+      min: 0,
     },
-    yearlyPrice: {
-      type: Number,
-      required: true,
-    },
-    stripeProductId: {
+    billingCycle: {
       type: String,
-    },
-    stripeMonthlyPriceId: {
-      type: String,
+      enum: ["monthly", "yearly"],
+      default: "monthly",
       required: true,
-    },
-    stripeYearlyPriceId: {
-      type: String,
-      required: true,
-    },
-    maxProperties: {
-      type: Number,
-      required: true,
-      default: 1,
-    },
-    maxFlats: {
-      type: Number,
-      required: true,
-      default: 5,
     },
     features: {
       type: [String],
       default: [],
+    },
+    leadLimit: {
+      type: Number,
+      required: true,
+      default: -1, // -1 means Unlimited
     },
     hasTrial: {
       type: Boolean,
@@ -52,6 +39,7 @@ const packageSchema = new Schema<IPackage, PackageModel>(
     trialDays: {
       type: Number,
       default: 0,
+      min: 0,
     },
     isPopular: {
       type: Boolean,
@@ -64,6 +52,24 @@ const packageSchema = new Schema<IPackage, PackageModel>(
     isDeleted: {
       type: Boolean,
       default: false,
+    },
+    stripeProductId: {
+      type: String,
+    },
+    stripePriceId: {
+      type: String,
+    },
+    stripeMonthlyPriceId: {
+      type: String,
+    },
+    stripeYearlyPriceId: {
+      type: String,
+    },
+    monthlyPrice: {
+      type: Number,
+    },
+    yearlyPrice: {
+      type: Number,
     },
   },
   {

@@ -1,12 +1,14 @@
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
-import { getStripe } from "../../../helpers/stripeHelper";
-import { getCurrencyCode } from "../../../helpers/currencyHelper";
 import { IPackage } from "./package.interface";
 import { Package } from "./package.model";
 
 const createPackageIntoDB = async (payload: IPackage): Promise<IPackage> => {
-  const isExist = await Package.findOne({ name: payload.name });
+  const isExist = await Package.findOne({
+    name: { $regex: new RegExp(`^${payload.name}$`, "i") },
+    isDeleted: { $ne: true },
+  });
+
   if (isExist) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -14,54 +16,24 @@ const createPackageIntoDB = async (payload: IPackage): Promise<IPackage> => {
     );
   }
 
-  // Auto-generate Stripe Product and Recurring Prices if not provided
-  if (!payload.stripeMonthlyPriceId || !payload.stripeYearlyPriceId) {
-    const stripe = getStripe();
-    const currency = getCurrencyCode();
+  // Sync trial fields
+  if (payload.trialDays && payload.trialDays > 0) {
+    payload.hasTrial = true;
+  } else if (!payload.hasTrial) {
+    payload.trialDays = 0;
+  }
 
-    // 1. Create Product in Stripe
-    const product = await stripe.products.create({
-      name: payload.name,
-      description: payload.description || undefined,
-      metadata: {
-        maxProperties: String(payload.maxProperties),
-        maxFlats: String(payload.maxFlats),
-        hasTrial: String(payload.hasTrial),
-        trialDays: String(payload.trialDays),
-      },
-    });
-
-    // 2. Create Monthly Recurring Price
-    const monthlyPrice = await stripe.prices.create({
-      product: product.id,
-      unit_amount: Math.round(payload.monthlyPrice * 100), // convert to cents
-      currency,
-      recurring: {
-        interval: "month",
-      },
-      metadata: {
-        planType: "monthly",
-        packageName: payload.name,
-      },
-    });
-
-    // 3. Create Yearly Recurring Price
-    const yearlyPrice = await stripe.prices.create({
-      product: product.id,
-      unit_amount: Math.round(payload.yearlyPrice * 100), // convert to cents
-      currency,
-      recurring: {
-        interval: "year",
-      },
-      metadata: {
-        planType: "yearly",
-        packageName: payload.name,
-      },
-    });
-
-    payload.stripeProductId = product.id;
-    payload.stripeMonthlyPriceId = monthlyPrice.id;
-    payload.stripeYearlyPriceId = yearlyPrice.id;
+  // Ensure backward compatibility fields for price
+  if (payload.price !== undefined) {
+    if (payload.monthlyPrice === undefined) {
+      payload.monthlyPrice = payload.price;
+    }
+    if (payload.yearlyPrice === undefined) {
+      payload.yearlyPrice =
+        payload.billingCycle === "yearly"
+          ? payload.price
+          : payload.price * 10; // Standard 2-month discount default
+    }
   }
 
   const result = await Package.create(payload);
@@ -69,18 +41,31 @@ const createPackageIntoDB = async (payload: IPackage): Promise<IPackage> => {
 };
 
 const getAllPackagesFromDB = async (query: Record<string, unknown> = {}) => {
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = {
+    isDeleted: { $ne: true },
+  };
 
   if (query.isActive !== undefined) {
     filter.isActive = query.isActive === "true" || query.isActive === true;
   }
 
-  const result = await Package.find(filter).sort({ monthlyPrice: 1 });
+  if (query.billingCycle) {
+    filter.billingCycle = query.billingCycle;
+  }
+
+  if (query.searchTerm) {
+    filter.$or = [
+      { name: { $regex: query.searchTerm as string, $options: "i" } },
+      { description: { $regex: query.searchTerm as string, $options: "i" } },
+    ];
+  }
+
+  const result = await Package.find(filter).sort({ price: 1 });
   return result;
 };
 
 const getPackageByIdFromDB = async (id: string): Promise<IPackage | null> => {
-  const result = await Package.findById(id);
+  const result = await Package.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!result) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Package not found");
   }
@@ -91,56 +76,43 @@ const updatePackageIntoDB = async (
   id: string,
   payload: Partial<IPackage>,
 ): Promise<IPackage | null> => {
-  const isExist = await Package.findById(id);
+  const isExist = await Package.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!isExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Package not found");
   }
 
-  const stripe = getStripe();
-  const currency = getCurrencyCode();
+  // If name is changing, check uniqueness
+  if (payload.name && payload.name.toLowerCase() !== isExist.name.toLowerCase()) {
+    const duplicate = await Package.findOne({
+      _id: { $ne: id },
+      name: { $regex: new RegExp(`^${payload.name}$`, "i") },
+      isDeleted: { $ne: true },
+    });
+    if (duplicate) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Another package with this name already exists",
+      );
+    }
+  }
 
-  // If Stripe product exists, keep it updated
-  if (isExist.stripeProductId) {
-    try {
-      if (payload.name || payload.description !== undefined) {
-        await stripe.products.update(isExist.stripeProductId, {
-          name: payload.name || isExist.name,
-          description: payload.description || undefined,
-        });
-      }
+  // Handle trial period logic when updated
+  if (payload.trialDays !== undefined) {
+    if (payload.trialDays > 0) {
+      payload.hasTrial = true;
+    } else {
+      payload.hasTrial = false;
+      payload.trialDays = 0;
+    }
+  } else if (payload.hasTrial === false) {
+    payload.trialDays = 0;
+  }
 
-      // If monthly price changed, create a new price in Stripe
-      if (
-        payload.monthlyPrice !== undefined &&
-        payload.monthlyPrice !== isExist.monthlyPrice
-      ) {
-        const newMonthlyPrice = await stripe.prices.create({
-          product: isExist.stripeProductId,
-          unit_amount: Math.round(payload.monthlyPrice * 100),
-          currency,
-          recurring: { interval: "month" },
-          metadata: { planType: "monthly", packageName: isExist.name },
-        });
-        payload.stripeMonthlyPriceId = newMonthlyPrice.id;
-      }
-
-      // If yearly price changed, create a new price in Stripe
-      if (
-        payload.yearlyPrice !== undefined &&
-        payload.yearlyPrice !== isExist.yearlyPrice
-      ) {
-        const newYearlyPrice = await stripe.prices.create({
-          product: isExist.stripeProductId,
-          unit_amount: Math.round(payload.yearlyPrice * 100),
-          currency,
-          recurring: { interval: "year" },
-          metadata: { planType: "yearly", packageName: isExist.name },
-        });
-        payload.stripeYearlyPriceId = newYearlyPrice.id;
-      }
-    } catch (err: any) {
-      // Log stripe sync error but don't crash
-      console.error("Stripe sync error during package update:", err.message);
+  // Backward compatibility prices
+  if (payload.price !== undefined) {
+    payload.monthlyPrice = payload.price;
+    if (payload.billingCycle === "yearly" || isExist.billingCycle === "yearly") {
+      payload.yearlyPrice = payload.price;
     }
   }
 
@@ -148,23 +120,14 @@ const updatePackageIntoDB = async (
     new: true,
     runValidators: true,
   });
+
   return result;
 };
 
 const deletePackageFromDB = async (id: string): Promise<IPackage | null> => {
-  const isExist = await Package.findById(id);
+  const isExist = await Package.findOne({ _id: id, isDeleted: { $ne: true } });
   if (!isExist) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Package not found");
-  }
-
-  // Deactivate in Stripe if product exists
-  if (isExist.stripeProductId) {
-    try {
-      const stripe = getStripe();
-      await stripe.products.update(isExist.stripeProductId, { active: false });
-    } catch (err: any) {
-      console.error("Stripe deactivate error:", err.message);
-    }
   }
 
   const result = await Package.findByIdAndUpdate(
@@ -172,6 +135,7 @@ const deletePackageFromDB = async (id: string): Promise<IPackage | null> => {
     { isDeleted: true, isActive: false },
     { new: true },
   );
+
   return result;
 };
 
