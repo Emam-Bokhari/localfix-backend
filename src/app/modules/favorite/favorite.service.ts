@@ -198,8 +198,8 @@ const getFavorites = async (userId: string) => {
       return {
         _id: fav._id,
         userId: fav.userId,
+        referenceId: prof._id,
         professional: formattedProfessional,
-        referenceId: formattedProfessional,
         isFavorite: true,
         createdAt: fav.createdAt,
         updatedAt: fav.updatedAt,
@@ -288,8 +288,8 @@ const getSingleFavorite = async (userId: string, id: string) => {
   return {
     _id: favorite._id,
     userId: favorite.userId,
+    referenceId: prof?._id || favorite.referenceId,
     professional: formattedProfessional,
-    referenceId: formattedProfessional,
     isFavorite: true,
     createdAt: favorite.createdAt,
     updatedAt: favorite.updatedAt,
