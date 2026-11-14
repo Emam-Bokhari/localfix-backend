@@ -90,10 +90,61 @@ const deleteJobRequest = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMarketplaceLeads = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await JobRequestService.getMarketplaceLeadsFromDB(
+    userId,
+    req.query,
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Marketplace leads retrieved successfully",
+    meta: result.meta,
+    data: result.data,
+  });
+});
+
+const getSingleMarketplaceLead = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await JobRequestService.getSingleMarketplaceLeadFromDB(
+      req.params.id,
+      userId,
+    );
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Marketplace lead details retrieved successfully",
+      data: result,
+    });
+  },
+);
+
+const rejectMarketplaceLead = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await JobRequestService.rejectMarketplaceLeadInDB(
+    req.params.id,
+    userId,
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Marketplace lead rejected successfully",
+    data: result,
+  });
+});
+
 export const JobRequestController = {
   createJobRequest,
   getMyJobRequests,
   getJobRequestById,
   updateJobRequest,
   deleteJobRequest,
+  getMarketplaceLeads,
+  getSingleMarketplaceLead,
+  rejectMarketplaceLead,
 };

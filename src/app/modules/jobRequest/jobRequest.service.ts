@@ -9,6 +9,8 @@ import { IJobRequest, IServiceLocation } from "./jobRequest.interface";
 import { JobRequest } from "./jobRequest.model";
 import { sendNotifications } from "../../../helpers/notificationsHelper";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
+import { buildFuzzySearchRegex, escapeRegex } from "../../../helpers/searchHelper";
+import { JOB_REQUEST_STATUS } from "../../../enums/jobRequest";
 
 const isAdminRole = (role?: string) =>
   role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN;
@@ -62,6 +64,11 @@ const createJobRequestToDB = async (
     );
   }
 
+  const isUrgent =
+    payload.isUrgent !== undefined
+      ? Boolean(payload.isUrgent)
+      : /urgent|asap|emergency/i.test(payload.timeframe || "");
+
   const jobRequestData: Partial<IJobRequest> = {
     ...payload,
     homeowner: new Types.ObjectId(userId),
@@ -72,6 +79,7 @@ const createJobRequestToDB = async (
     headline,
     title,
     serviceLocation,
+    isUrgent,
     projectPhotos: Array.isArray(payload.projectPhotos)
       ? payload.projectPhotos
       : [],
@@ -192,15 +200,25 @@ const getJobRequestByIdFromDB = async (
   const isOwner = homeownerId === userId;
   const isTargetedPro = professionalId === userId;
   const isAdmin = isAdminRole(userRole);
+  const isOpenMarketplaceLead =
+    !professionalId && userRole === USER_ROLES.PROFESSIONAL;
 
-  if (!isOwner && !isTargetedPro && !isAdmin) {
+  if (!isOwner && !isTargetedPro && !isAdmin && !isOpenMarketplaceLead) {
     throw new ApiError(
       StatusCodes.FORBIDDEN,
       "You do not have permission to view this job request",
     );
   }
 
-  return jobRequest;
+  const rejectedBy = ((jobRequest as any).rejectedBy || []).map((u: any) =>
+    u.toString(),
+  );
+  const isRejectedByMe = rejectedBy.includes(userId);
+
+  return {
+    ...jobRequest,
+    isRejectedByMe,
+  };
 };
 
 const updateJobRequestToDB = async (
@@ -246,6 +264,15 @@ const updateJobRequestToDB = async (
     const headline = payload.headline || payload.title;
     updateData.headline = headline;
     updateData.title = payload.title || headline;
+  }
+
+  if (payload.timeframe !== undefined || payload.isUrgent !== undefined) {
+    updateData.isUrgent =
+      payload.isUrgent !== undefined
+        ? Boolean(payload.isUrgent)
+        : /urgent|asap|emergency/i.test(
+            payload.timeframe || existing.timeframe || "",
+          );
   }
 
   if (
@@ -320,10 +347,253 @@ const deleteJobRequestFromDB = async (
   return result;
 };
 
+const getMarketplaceLeadsFromDB = async (
+  userId: string,
+  query: Record<string, unknown> = {},
+) => {
+  const normalizedQuery = { ...query };
+  const proObjectId = new Types.ObjectId(userId);
+
+  // Base filter for marketplace leads:
+  // 1. Open request (no specific professional assigned)
+  // 2. Not rejected by this professional
+  // 3. Not soft-deleted
+  const baseFilter: Record<string, any> = {
+    professional: null,
+    rejectedBy: { $ne: proObjectId },
+    isDeleted: { $ne: true },
+  };
+
+  // Status filter (default to awaiting_quotes & quoted)
+  if (normalizedQuery.status) {
+    baseFilter.status = normalizedQuery.status;
+    delete normalizedQuery.status;
+  } else {
+    baseFilter.status = {
+      $in: [JOB_REQUEST_STATUS.AWAITING_QUOTES, JOB_REQUEST_STATUS.QUOTED],
+    };
+  }
+
+  // Category filter
+  const categoryParam = (
+    normalizedQuery.category ||
+    normalizedQuery.tradeCategory ||
+    normalizedQuery.categoryId
+  ) as string | undefined;
+
+  delete normalizedQuery.category;
+  delete normalizedQuery.tradeCategory;
+  delete normalizedQuery.categoryId;
+
+  if (
+    categoryParam &&
+    categoryParam !== "all" &&
+    categoryParam.toLowerCase() !== "all trade categories"
+  ) {
+    if (mongoose.Types.ObjectId.isValid(categoryParam)) {
+      baseFilter.category = new Types.ObjectId(categoryParam);
+    } else {
+      const matchedCat = await Category.findOne({
+        name: {
+          $regex: new RegExp(`^${escapeRegex(categoryParam.trim())}$`, "i"),
+        },
+      }).select("_id");
+
+      if (matchedCat) {
+        baseFilter.category = matchedCat._id;
+      } else {
+        baseFilter.category = new Types.ObjectId();
+      }
+    }
+  }
+
+  // Search filter
+  const searchTerm = (
+    normalizedQuery.searchTerm ||
+    normalizedQuery.search ||
+    normalizedQuery.q
+  ) as string | undefined;
+
+  delete normalizedQuery.searchTerm;
+  delete normalizedQuery.search;
+  delete normalizedQuery.q;
+
+  if (searchTerm && searchTerm.trim()) {
+    const trimmed = searchTerm.trim();
+    const searchRegex =
+      buildFuzzySearchRegex(trimmed) || new RegExp(escapeRegex(trimmed), "i");
+
+    const [matchingHomeowners, matchingCategories] = await Promise.all([
+      User.find({ name: searchRegex }).select("_id"),
+      Category.find({ name: searchRegex }).select("_id"),
+    ]);
+
+    const matchingUserIds = matchingHomeowners.map((u) => u._id);
+    const matchingCategoryIds = matchingCategories.map((c) => c._id);
+
+    const searchConditions: Record<string, any>[] = [
+      { headline: searchRegex },
+      { title: searchRegex },
+      { description: searchRegex },
+      { "serviceLocation.city": searchRegex },
+      { "serviceLocation.address": searchRegex },
+      { "serviceLocation.zipCode": searchRegex },
+      { "serviceLocation.state": searchRegex },
+      { propertyType: searchRegex },
+      { timeframe: searchRegex },
+      { partsAndMaterials: searchRegex },
+    ];
+
+    if (matchingUserIds.length > 0) {
+      searchConditions.push({ homeowner: { $in: matchingUserIds } });
+    }
+
+    if (matchingCategoryIds.length > 0) {
+      searchConditions.push({ category: { $in: matchingCategoryIds } });
+    }
+
+    baseFilter.$or = searchConditions;
+  }
+
+  // Sort normalization ("Newest First", "Most Urgent", "Highest Budget")
+  const rawSort = String(
+    normalizedQuery.sort || normalizedQuery.sortBy || "",
+  ).trim();
+  delete normalizedQuery.sort;
+  delete normalizedQuery.sortBy;
+
+  let sortOption: Record<string, 1 | -1> | string = { createdAt: -1 };
+
+  if (/urgent/i.test(rawSort)) {
+    sortOption = { isUrgent: -1, createdAt: -1 };
+  } else if (
+    /budget/i.test(rawSort) ||
+    rawSort === "highest_budget" ||
+    rawSort === "-estimatedBudget"
+  ) {
+    sortOption = { estimatedBudget: -1, createdAt: -1 };
+  } else if (
+    /newest/i.test(rawSort) ||
+    rawSort === "-createdAt" ||
+    !rawSort
+  ) {
+    sortOption = { createdAt: -1 };
+  } else {
+    sortOption = rawSort.split(",").join(" ");
+  }
+
+  // Pagination
+  const page = Math.max(1, Number(normalizedQuery.page) || 1);
+  const limit = Math.max(1, Number(normalizedQuery.limit) || 10);
+  const skip = (page - 1) * limit;
+
+  delete normalizedQuery.page;
+  delete normalizedQuery.limit;
+
+  const finalFilter = { ...baseFilter, ...normalizedQuery };
+
+  const [data, total] = await Promise.all([
+    JobRequest.find(finalFilter)
+      .populate("category", "name icon coverImage")
+      .populate(
+        "homeowner",
+        "name email profileImage phone city state zipCode streetAddress",
+      )
+      .sort(sortOption as any)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    JobRequest.countDocuments(finalFilter),
+  ]);
+
+  const totalPage = Math.ceil(total / limit);
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage,
+    },
+    data,
+  };
+};
+
+const rejectMarketplaceLeadInDB = async (
+  leadId: string,
+  userId: string,
+) => {
+  assertValidObjectId(leadId, "Job Request ID");
+
+  const existing = await JobRequest.findById(leadId);
+  if (!existing) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Job request not found");
+  }
+
+  const proObjectId = new Types.ObjectId(userId);
+
+  await JobRequest.findByIdAndUpdate(
+    leadId,
+    {
+      $addToSet: { rejectedBy: proObjectId },
+    },
+    { new: true },
+  );
+
+  return {
+    leadId,
+    rejected: true,
+  };
+};
+
+const getSingleMarketplaceLeadFromDB = async (
+  id: string,
+  userId: string,
+) => {
+  assertValidObjectId(id, "Job Request ID");
+
+  const jobRequest = await JobRequest.findById(id)
+    .populate("category", "name icon coverImage")
+    .populate(
+      "homeowner",
+      "name email profileImage phone city state zipCode streetAddress",
+    )
+    .lean();
+
+  if (!jobRequest) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Marketplace lead not found");
+  }
+
+  const professionalId =
+    (jobRequest.professional as { _id?: Types.ObjectId })?._id?.toString() ||
+    jobRequest.professional?.toString();
+
+  // If this lead was directly assigned/targeted to someone else, reject access
+  if (professionalId && professionalId !== userId) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "You do not have permission to view this job request",
+    );
+  }
+
+  const rejectedBy = ((jobRequest as any).rejectedBy || []).map((u: any) =>
+    u.toString(),
+  );
+  const isRejectedByMe = rejectedBy.includes(userId);
+
+  return {
+    ...jobRequest,
+    isRejectedByMe,
+  };
+};
+
 export const JobRequestService = {
   createJobRequestToDB,
   getMyJobRequestsFromDB,
   getJobRequestByIdFromDB,
   updateJobRequestToDB,
   deleteJobRequestFromDB,
+  getMarketplaceLeadsFromDB,
+  getSingleMarketplaceLeadFromDB,
+  rejectMarketplaceLeadInDB,
 };

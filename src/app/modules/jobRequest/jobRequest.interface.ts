@@ -30,6 +30,8 @@ export type IJobRequest = {
   professional?: Types.ObjectId | null;
   status: JOB_REQUEST_STATUS;
   quotesCount?: number;
+  rejectedBy?: Types.ObjectId[];
+  isUrgent?: boolean;
   isDeleted?: boolean;
   deletedAt?: Date | null;
   createdAt?: Date;

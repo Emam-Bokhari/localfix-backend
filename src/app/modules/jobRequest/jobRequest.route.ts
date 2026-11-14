@@ -1,5 +1,9 @@
 import express from "express";
-import { isAuthenticated, isHomeOwner } from "../../../helpers/authHelper";
+import {
+  isAuthenticated,
+  isHomeOwner,
+  isProfessional,
+} from "../../../helpers/authHelper";
 import fileUploadHandler from "../../middlewares/flieUploadHandler";
 import { parseFileData } from "../../middlewares/parseFileData";
 import validateRequest from "../../middlewares/validateRequest";
@@ -12,6 +16,25 @@ const uploadJobPhotos = [
   fileUploadHandler(["projectPhotos"]),
   parseFileData({ fieldName: "projectPhotos", mode: "multiple" }),
 ];
+
+// Marketplace leads routes for professionals
+router.get(
+  "/marketplace-leads",
+  isProfessional,
+  JobRequestController.getMarketplaceLeads,
+);
+
+router.get(
+  "/marketplace-leads/:id",
+  isProfessional,
+  JobRequestController.getSingleMarketplaceLead,
+);
+
+router.post(
+  "/marketplace-leads/:id/reject",
+  isProfessional,
+  JobRequestController.rejectMarketplaceLead,
+);
 
 router
   .route("/")

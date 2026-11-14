@@ -120,6 +120,16 @@ const jobRequestSchema = new Schema<IJobRequest, IJobRequestModel>(
       type: Number,
       default: 0,
     },
+    rejectedBy: {
+      type: [Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
+    isUrgent: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -135,6 +145,9 @@ jobRequestSchema.pre("save", function (next) {
   } else if (this.title && !this.headline) {
     this.headline = this.title;
   }
+  if (this.timeframe) {
+    this.isUrgent = /urgent|asap|emergency/i.test(this.timeframe);
+  }
   next();
 });
 
@@ -144,6 +157,9 @@ jobRequestSchema.index({ homeowner: 1, createdAt: -1 });
 jobRequestSchema.index({ category: 1, status: 1 });
 jobRequestSchema.index({ professional: 1, status: 1 });
 jobRequestSchema.index({ "serviceLocation.zipCode": 1 });
+jobRequestSchema.index({ rejectedBy: 1 });
+jobRequestSchema.index({ isUrgent: -1, createdAt: -1 });
+jobRequestSchema.index({ estimatedBudget: -1, createdAt: -1 });
 
 export const JobRequest = model<IJobRequest, IJobRequestModel>(
   "JobRequest",
