@@ -86,6 +86,7 @@ export type IUser = {
   countryCode?: string;
   status: STATUS;
   approvalStatus?: APPROVAL_STATUS;
+  rejectionReason?: string;
   agreedToTerms?: boolean;
   termsAcceptedAt?: Date | null;
   about?: string;

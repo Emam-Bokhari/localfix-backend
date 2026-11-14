@@ -385,11 +385,78 @@ const updateUserStatusByIdToDB = async (
   return result;
 };
 
+const getClearancesFromDB = async (query: Record<string, unknown>) => {
+  const approvalStatus = (query.approvalStatus as string)
+    ?.toLowerCase?.()
+    ?.trim?.();
+
+  const filterCondition: Record<string, any> = {
+    role: USER_ROLES.PROFESSIONAL,
+  };
+
+  if (approvalStatus && approvalStatus !== "all") {
+    filterCondition.approvalStatus = approvalStatus;
+  } else if (!approvalStatus) {
+    // Default to pending clearances if no specific status is requested
+    filterCondition.approvalStatus = APPROVAL_STATUS.PENDING;
+  }
+
+  const baseQuery = User.find(filterCondition)
+    .populate("category", "name icon coverImage")
+    .populate("projectPhotos.category", "name icon coverImage")
+    .select("-password -authentication -deviceToken");
+
+  const queryBuilder = new QueryBuilder<IUser>(baseQuery, query)
+    .search(USER_SEARCHABLE_FIELDS)
+    .filter()
+    .sort()
+    .fields()
+    .paginate();
+
+  const [clearances, meta, counts] = await Promise.all([
+    queryBuilder.modelQuery.lean(),
+    queryBuilder.countTotal(),
+    Promise.all([
+      User.countDocuments({
+        role: USER_ROLES.PROFESSIONAL,
+        approvalStatus: APPROVAL_STATUS.PENDING,
+      }),
+      User.countDocuments({
+        role: USER_ROLES.PROFESSIONAL,
+        approvalStatus: APPROVAL_STATUS.APPROVED,
+      }),
+      User.countDocuments({
+        role: USER_ROLES.PROFESSIONAL,
+        approvalStatus: APPROVAL_STATUS.REJECTED,
+      }),
+      User.countDocuments({
+        role: USER_ROLES.PROFESSIONAL,
+      }),
+    ]).then(([pending, approved, rejected, total]) => ({
+      pending,
+      approved,
+      rejected,
+      total,
+    })),
+  ]);
+
+  return {
+    data: clearances,
+    meta,
+    counts,
+  };
+};
+
 const updateApprovalStatusByIdToDB = async (
   id: string,
   approvalStatus: APPROVAL_STATUS,
+  rejectionReason?: string,
 ) => {
-  if (!Object.values(APPROVAL_STATUS).includes(approvalStatus)) {
+  const normalizedStatus = (
+    approvalStatus?.toLowerCase?.()?.trim?.() || approvalStatus
+  ) as APPROVAL_STATUS;
+
+  if (!Object.values(APPROVAL_STATUS).includes(normalizedStatus)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Approval status must be 'pending', 'approved', or 'rejected'",
@@ -401,12 +468,35 @@ const updateApprovalStatusByIdToDB = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "No user is found by this ID");
   }
 
-  const updateFields: Record<string, any> = { approvalStatus };
-  if (approvalStatus === APPROVAL_STATUS.APPROVED && user.tradeLicense) {
-    updateFields["tradeLicense.isVerified"] = true;
-  }
-  if (approvalStatus === APPROVAL_STATUS.APPROVED && user.liabilityInsurance) {
-    updateFields["liabilityInsurance.isVerified"] = true;
+  const updateFields: Record<string, any> = {
+    approvalStatus: normalizedStatus,
+  };
+
+  if (normalizedStatus === APPROVAL_STATUS.APPROVED) {
+    if (user.tradeLicense) {
+      updateFields["tradeLicense.isVerified"] = true;
+    }
+    if (user.liabilityInsurance) {
+      updateFields["liabilityInsurance.isVerified"] = true;
+    }
+    updateFields.rejectionReason = null;
+  } else if (normalizedStatus === APPROVAL_STATUS.REJECTED) {
+    if (user.tradeLicense) {
+      updateFields["tradeLicense.isVerified"] = false;
+    }
+    if (user.liabilityInsurance) {
+      updateFields["liabilityInsurance.isVerified"] = false;
+    }
+    if (rejectionReason !== undefined) {
+      updateFields.rejectionReason = rejectionReason.trim();
+    }
+  } else if (normalizedStatus === APPROVAL_STATUS.PENDING) {
+    if (user.tradeLicense) {
+      updateFields["tradeLicense.isVerified"] = false;
+    }
+    if (user.liabilityInsurance) {
+      updateFields["liabilityInsurance.isVerified"] = false;
+    }
   }
 
   const result = await User.findByIdAndUpdate(
@@ -418,17 +508,25 @@ const updateApprovalStatusByIdToDB = async (
     .select("-password -authentication");
 
   if (user.role === USER_ROLES.PROFESSIONAL) {
+    let notificationTitle = "Application Status Update";
+    let notificationText = `Your professional application status has been updated to ${normalizedStatus}.`;
+
+    if (normalizedStatus === APPROVAL_STATUS.APPROVED) {
+      notificationTitle = "Application Approved";
+      notificationText =
+        "Your professional application has been approved. You can now receive local service jobs.";
+    } else if (normalizedStatus === APPROVAL_STATUS.REJECTED) {
+      notificationTitle = "Application Rejected";
+      notificationText = rejectionReason
+        ? `Your professional application has been rejected. Reason: ${rejectionReason}`
+        : "Your professional application has been rejected. Please review your credentials and resubmit or contact support.";
+    }
+
     await sendNotifications({
       receiver: user._id.toString(),
       type: NOTIFICATION_TYPE.PROFESSIONAL,
-      title:
-        approvalStatus === APPROVAL_STATUS.APPROVED
-          ? "Application Approved"
-          : "Application Status Update",
-      text:
-        approvalStatus === APPROVAL_STATUS.APPROVED
-          ? "Your professional application has been approved. You can now receive local service jobs."
-          : `Your professional application status has been updated to ${approvalStatus}.`,
+      title: notificationTitle,
+      text: notificationText,
       referenceId: user._id.toString(),
       referenceModel: "User",
     });
@@ -595,6 +693,7 @@ const deleteProjectPhotoFromDB = async (userId: string, photoId: string) => {
 export const UserService = {
   createUserToDB,
   getUsersFromDB,
+  getClearancesFromDB,
   getAdminFromDB,
   getSuperAdminFromDB,
   deleteAdminFromDB,

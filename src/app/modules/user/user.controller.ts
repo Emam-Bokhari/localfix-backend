@@ -126,19 +126,33 @@ const updateUserStatusById = catchAsync(async (req, res) => {
   });
 });
 
+const getClearances = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.getClearancesFromDB(req.query);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Clearances retrieved successfully",
+    meta: result.meta,
+    stats: result.counts,
+    data: result.data,
+  });
+});
+
 const updateApprovalStatusById = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { approvalStatus } = req.body;
+  const { approvalStatus, rejectionReason } = req.body;
 
   const result = await UserService.updateApprovalStatusByIdToDB(
     id,
     approvalStatus,
+    rejectionReason,
   );
 
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: "Approval status updated successfully",
+    message: `Approval status updated to ${approvalStatus} successfully`,
     data: result,
   });
 });
@@ -241,6 +255,7 @@ export const UserController = {
   createUser,
   createAdmin,
   getUsers,
+  getClearances,
   getAdmin,
   getSuperAdmin,
   deleteAdmin,

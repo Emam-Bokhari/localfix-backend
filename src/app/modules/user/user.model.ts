@@ -84,6 +84,11 @@ const userSchema = new Schema<IUser, IUserModel>(
       enum: Object.values(APPROVAL_STATUS),
       default: APPROVAL_STATUS.APPROVED,
     },
+    rejectionReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     agreedToTerms: {
       type: Boolean,
       default: false,

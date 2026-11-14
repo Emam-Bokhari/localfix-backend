@@ -103,6 +103,12 @@ router
     UserController.updateProfile,
   );
 
+/* ---------------------------- CLEARANCE & VERIFICATION ----------------- */
+router.get("/clearances", isAdmin, UserController.getClearances);
+router.get("/clearance", isAdmin, UserController.getClearances);
+router.get("/clearances/:id", isAdmin, UserController.getUserById);
+router.get("/clearance/:id", isAdmin, UserController.getUserById);
+
 /* ---------------------------- STATUS UPDATE ----------------------------- */
 router.patch(
   "/admin/status/:id",
@@ -118,6 +124,7 @@ router.patch(
 router.patch(
   "/approval-status/:id",
   isAdmin,
+  validateRequest(UserValidation.updateApprovalStatusZodSchema),
   UserController.updateApprovalStatusById,
 );
 

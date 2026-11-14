@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GENDER, STATUS, USER_ROLES } from "../../../enums/user";
+import { APPROVAL_STATUS, GENDER, STATUS, USER_ROLES } from "../../../enums/user";
 import { signUpBodyZodSchema } from "../auth/auth.validation";
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -175,6 +175,19 @@ const updateUserStatusZodSchema = z.object({
   }),
 });
 
+const updateApprovalStatusZodSchema = z.object({
+  body: z.object({
+    approvalStatus: z.preprocess(
+      (val) => (typeof val === "string" ? val.toLowerCase().trim() : val),
+      z.nativeEnum(APPROVAL_STATUS, {
+        required_error:
+          "approvalStatus is required and must be 'approved', 'rejected', or 'pending'",
+      }),
+    ),
+    rejectionReason: z.string().trim().optional(),
+  }),
+});
+
 const addProjectPhotoZodSchema = z.object({
   body: z.object({
     image: z.string().trim().optional(),
@@ -203,6 +216,7 @@ export const UserValidation = {
   createUserZodSchema,
   updateProfileZodSchema,
   updateUserStatusZodSchema,
+  updateApprovalStatusZodSchema,
   addProjectPhotoZodSchema,
   updateProjectPhotoZodSchema,
 };
