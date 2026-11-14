@@ -19,6 +19,7 @@ import { CheckrRoutes } from "../modules/checkr/checkr.route";
 import { MarqueeRoutes } from "../modules/marquee/marquee.route";
 import { SiteSettingsRoutes } from "../modules/siteSettings/siteSettings.route";
 import { ServiceRoutes } from "../modules/service/service.route";
+import { ProfessionalRoutes } from "../modules/professional/professional.route";
 import { JobRequestRoutes } from "../modules/jobRequest/jobRequest.route";
 import { FavoriteRoutes } from "../modules/favorite/favorite.route";
 
@@ -104,6 +105,10 @@ const apiRoutes = [
   {
     path: "/services",
     route: ServiceRoutes,
+  },
+  {
+    path: "/professionals",
+    route: ProfessionalRoutes,
   },
   {
     path: "/job-requests",

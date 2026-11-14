@@ -113,6 +113,12 @@ export type IUser = {
   businessHours?: TBusinessHours;
   acceptedPayments?: string[];
   projectPhotos?: TProjectPhoto[];
+  startingRate?: number;
+  hourlyRate?: number;
+  completedJobs?: number;
+  localJobs?: number;
+  responseTime?: string;
+  availability?: string;
   authentication?: {
     isResetPassword?: boolean;
     oneTimeCode?: number | null;

@@ -117,6 +117,12 @@ const optionalUserFields = {
   emergencyDispatchAvailable: z.union([z.boolean(), z.string()]).optional(),
   acceptedPayments: z.array(z.string().trim().min(1)).optional(),
   projectPhotos: z.array(projectPhotoItemZodSchema).optional(),
+  startingRate: z.coerce.number().min(0).optional(),
+  hourlyRate: z.coerce.number().min(0).optional(),
+  completedJobs: z.coerce.number().min(0).optional(),
+  localJobs: z.coerce.number().min(0).optional(),
+  responseTime: z.string().trim().optional(),
+  availability: z.string().trim().optional(),
   location: locationZodSchema,
   timezone: z.string().trim().optional(),
 };

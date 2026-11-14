@@ -124,6 +124,7 @@ const deleteMyService = catchAsync(async (req: Request, res: Response) => {
 
 export const ServiceController = {
   getProfessionalsByCategory,
+  getAllProfessionals: getProfessionalsByCategory,
   getProfessionalDetails,
   createService,
   getMyServices,

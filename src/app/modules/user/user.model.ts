@@ -235,6 +235,32 @@ const userSchema = new Schema<IUser, IUserModel>(
       type: [projectPhotoSchema],
       default: [],
     },
+    startingRate: {
+      type: Number,
+      default: 85,
+    },
+    hourlyRate: {
+      type: Number,
+      default: 85,
+    },
+    completedJobs: {
+      type: Number,
+      default: 0,
+    },
+    localJobs: {
+      type: Number,
+      default: 0,
+    },
+    responseTime: {
+      type: String,
+      default: "Replies in ~20 mins",
+      trim: true,
+    },
+    availability: {
+      type: String,
+      default: "Available this week",
+      trim: true,
+    },
     backgroundCheck: {
       consentAccepted: {
         type: Boolean,
