@@ -20,6 +20,7 @@ import { MarqueeRoutes } from "../modules/marquee/marquee.route";
 import { SiteSettingsRoutes } from "../modules/siteSettings/siteSettings.route";
 import { ServiceRoutes } from "../modules/service/service.route";
 import { JobRequestRoutes } from "../modules/jobRequest/jobRequest.route";
+import { FavoriteRoutes } from "../modules/favorite/favorite.route";
 
 const router = express.Router();
 
@@ -111,6 +112,10 @@ const apiRoutes = [
   {
     path: "/jobs",
     route: JobRequestRoutes,
+  },
+  {
+    path: "/favorites",
+    route: FavoriteRoutes,
   },
 ];
 

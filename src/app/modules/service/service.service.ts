@@ -7,6 +7,7 @@ import QueryBuilder from "../../builder/queryBuilder";
 import { Category } from "../category/category.model";
 import { Review } from "../review/review.model";
 import { User } from "../user/user.model";
+import { FavoriteService } from "../favorite/favorite.service";
 import { IService } from "./service.interface";
 import { Service } from "./service.model";
 
@@ -44,6 +45,7 @@ const assertCategoryExists = async (
 
 const getProfessionalsByCategoryFromDB = async (
   query: Record<string, unknown> = {},
+  currentUserId?: string,
 ) => {
   const rawCategoryId = (query.category || query.categoryId) as
     | string
@@ -233,8 +235,21 @@ const getProfessionalsByCategoryFromDB = async (
     const total = result?.totalCount?.[0]?.total || 0;
     const totalPage = Math.ceil(total / limit);
 
+    const professionalIds = (data as any[]).map((item) => item._id);
+    const favoriteSet = currentUserId
+      ? await FavoriteService.getFavoriteProfessionalIds(
+          currentUserId,
+          professionalIds,
+        )
+      : new Set<string>();
+
+    const enrichedData = data.map((item: any) => ({
+      ...item,
+      isFavorite: favoriteSet.has(item._id.toString()),
+    }));
+
     return {
-      data,
+      data: enrichedData,
       meta: {
         page,
         limit,
@@ -246,7 +261,21 @@ const getProfessionalsByCategoryFromDB = async (
 
   pipeline.push({ $project: { latestServiceAt: 0 } });
   const data = await Service.aggregate(pipeline);
-  return { data };
+
+  const professionalIds = (data as any[]).map((item) => item._id);
+  const favoriteSet = currentUserId
+    ? await FavoriteService.getFavoriteProfessionalIds(
+        currentUserId,
+        professionalIds,
+      )
+    : new Set<string>();
+
+  const enrichedData = data.map((item: any) => ({
+    ...item,
+    isFavorite: favoriteSet.has(item._id.toString()),
+  }));
+
+  return { data: enrichedData };
 };
 
 type TPopulatedCategory = {
@@ -286,7 +315,10 @@ const buildCategoryTabs = (items: Array<{ category?: unknown }>) => {
   return Array.from(categoryMap.values());
 };
 
-const getProfessionalDetailsFromDB = async (professionalId: string) => {
+const getProfessionalDetailsFromDB = async (
+  professionalId: string,
+  currentUserId?: string,
+) => {
   assertValidObjectId(professionalId, "professional");
 
   const professional = await User.findOne({
@@ -306,7 +338,7 @@ const getProfessionalDetailsFromDB = async (professionalId: string) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Professional not found");
   }
 
-  const [services, reviewSummary, reviews] = await Promise.all([
+  const [services, reviewSummary, reviews, isFavorite] = await Promise.all([
     Service.find({ professional: professionalId })
       .populate("category", "name icon coverImage")
       .sort({ createdAt: -1 })
@@ -319,6 +351,9 @@ const getProfessionalDetailsFromDB = async (professionalId: string) => {
       })
       .sort({ createdAt: -1 })
       .lean(),
+    currentUserId
+      ? FavoriteService.isFavorite(currentUserId, professionalId)
+      : Promise.resolve(false),
   ]);
 
   const projectPhotos = professional.projectPhotos || [];
@@ -353,6 +388,7 @@ const getProfessionalDetailsFromDB = async (professionalId: string) => {
     categories: buildCategoryTabs([...services, ...projectPhotos]),
     projectPhotos,
     reviews,
+    isFavorite,
     createdAt: professional.createdAt,
   };
 };

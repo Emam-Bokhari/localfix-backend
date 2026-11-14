@@ -6,8 +6,10 @@ import { ServiceService } from "./service.service";
 
 const getProfessionalsByCategory = catchAsync(
   async (req: Request, res: Response) => {
+    const currentUserId = (req.user as any)?.id;
     const result = await ServiceService.getProfessionalsByCategoryFromDB(
       req.query,
+      currentUserId,
     );
 
     sendResponse(res, {
@@ -22,8 +24,10 @@ const getProfessionalsByCategory = catchAsync(
 
 const getProfessionalDetails = catchAsync(
   async (req: Request, res: Response) => {
+    const currentUserId = (req.user as any)?.id;
     const result = await ServiceService.getProfessionalDetailsFromDB(
       req.params.professionalId,
+      currentUserId,
     );
 
     sendResponse(res, {
