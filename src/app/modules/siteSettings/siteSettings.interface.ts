@@ -14,4 +14,3 @@ export type TSiteSettings = {
 };
 
 export type SiteSettingsModel = Model<TSiteSettings>;
-

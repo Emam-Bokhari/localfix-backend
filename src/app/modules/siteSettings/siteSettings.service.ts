@@ -83,4 +83,3 @@ export const SiteSettingsService = {
   upsertSiteSettingsToDB,
   getSiteSettingsFromDB,
 };
-

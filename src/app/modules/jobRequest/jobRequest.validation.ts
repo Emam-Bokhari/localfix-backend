@@ -35,7 +35,11 @@ const createJobRequestZodSchema = z.object({
         .string({ required_error: "Trade category is required" })
         .trim()
         .min(1, "Trade category is required"),
-      headline: z.string().trim().min(1, "Project headline is required").optional(),
+      headline: z
+        .string()
+        .trim()
+        .min(1, "Project headline is required")
+        .optional(),
       title: z.string().trim().min(1, "Project title is required").optional(),
       description: z
         .string({ required_error: "Detailed work description is required" })
@@ -67,13 +71,10 @@ const createJobRequestZodSchema = z.object({
       message: "Project headline or title is required",
       path: ["headline"],
     })
-    .refine(
-      (data) => Boolean(data.serviceLocation?.zipCode || data.zipCode),
-      {
-        message: "Service location ZIP code is required",
-        path: ["zipCode"],
-      },
-    ),
+    .refine((data) => Boolean(data.serviceLocation?.zipCode || data.zipCode), {
+      message: "Service location ZIP code is required",
+      path: ["zipCode"],
+    }),
 });
 
 const updateJobRequestZodSchema = z.object({
@@ -102,4 +103,3 @@ export const JobRequestValidation = {
   createJobRequestZodSchema,
   updateJobRequestZodSchema,
 };
-

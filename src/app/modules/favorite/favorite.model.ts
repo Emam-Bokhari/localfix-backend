@@ -26,4 +26,3 @@ favoriteSchema.index({ userId: 1, referenceId: 1 }, { unique: true });
 favoriteSchema.index({ referenceId: 1 });
 
 export const Favorite = model<IFavorite>("Favorite", favoriteSchema);
-

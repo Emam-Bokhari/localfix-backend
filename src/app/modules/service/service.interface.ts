@@ -12,4 +12,3 @@ export type IService = {
 };
 
 export type IServiceModel = ISoftDeleteModel<IService>;
-

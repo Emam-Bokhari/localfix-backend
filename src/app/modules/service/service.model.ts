@@ -41,4 +41,3 @@ serviceSchema.index(
 );
 
 export const Service = model<IService, IServiceModel>("Service", serviceSchema);
-

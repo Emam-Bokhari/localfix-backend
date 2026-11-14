@@ -45,10 +45,6 @@ router.get(
   ReviewController.getReviewByMaintenanceId,
 );
 
-router.get(
-  "/:id",
-  auth(...allReviewRoles),
-  ReviewController.getSingleReview,
-);
+router.get("/:id", auth(...allReviewRoles), ReviewController.getSingleReview);
 
 export const ReviewRoutes = router;

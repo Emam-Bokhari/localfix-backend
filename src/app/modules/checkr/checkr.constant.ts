@@ -63,4 +63,3 @@ export const normalizeUsStateCode = (state?: string): string | undefined => {
   }
   return US_STATE_MAP[trimmed.toLowerCase()];
 };
-

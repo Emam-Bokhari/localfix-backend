@@ -181,13 +181,13 @@ const getJobRequestByIdFromDB = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Job request not found");
   }
 
-  const homeownerId = (
-    jobRequest.homeowner as { _id?: Types.ObjectId }
-  )?._id?.toString() || jobRequest.homeowner?.toString();
+  const homeownerId =
+    (jobRequest.homeowner as { _id?: Types.ObjectId })?._id?.toString() ||
+    jobRequest.homeowner?.toString();
 
-  const professionalId = (
-    jobRequest.professional as { _id?: Types.ObjectId }
-  )?._id?.toString() || jobRequest.professional?.toString();
+  const professionalId =
+    (jobRequest.professional as { _id?: Types.ObjectId })?._id?.toString() ||
+    jobRequest.professional?.toString();
 
   const isOwner = homeownerId === userId;
   const isTargetedPro = professionalId === userId;
@@ -248,7 +248,10 @@ const updateJobRequestToDB = async (
     updateData.title = payload.title || headline;
   }
 
-  if (payload.estimatedBudget !== undefined && payload.estimatedBudget !== null) {
+  if (
+    payload.estimatedBudget !== undefined &&
+    payload.estimatedBudget !== null
+  ) {
     updateData.estimatedBudget = Number(payload.estimatedBudget);
   }
 
@@ -324,4 +327,3 @@ export const JobRequestService = {
   updateJobRequestToDB,
   deleteJobRequestFromDB,
 };
-

@@ -39,4 +39,3 @@ router
   .delete(isProfessional, ServiceController.deleteMyService);
 
 export const ServiceRoutes = router;
-

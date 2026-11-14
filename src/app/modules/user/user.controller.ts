@@ -210,7 +210,11 @@ const addProjectPhoto = catchAsync(async (req, res) => {
 const updateProjectPhoto = catchAsync(async (req, res) => {
   const { id }: any = req.user;
   const { photoId } = req.params;
-  const result = await UserService.updateProjectPhotoToDB(id, photoId, req.body);
+  const result = await UserService.updateProjectPhotoToDB(
+    id,
+    photoId,
+    req.body,
+  );
 
   sendResponse(res, {
     success: true,

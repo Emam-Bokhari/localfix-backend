@@ -72,7 +72,6 @@ const readNotificationToDB = async (
   return result;
 };
 
-
 // get notifications for admin
 const adminNotificationFromDB = async (query: any) => {
   const baseQuery = Notification.find({
@@ -111,7 +110,6 @@ const adminReadNotificationToDB = async (): Promise<INotification | null> => {
   );
   return result;
 };
-
 
 // get single notification (user)
 const getSingleNotificationFromDB = async (

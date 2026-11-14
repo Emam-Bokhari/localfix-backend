@@ -97,4 +97,3 @@ export const JobRequestController = {
   updateJobRequest,
   deleteJobRequest,
 };
-

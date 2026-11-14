@@ -41,7 +41,9 @@ const getFavoriteProfessionalIds = async (
 
   const validIds = professionalIds
     .map((id) => id?.toString())
-    .filter((id): id is string => Boolean(id && mongoose.Types.ObjectId.isValid(id)))
+    .filter((id): id is string =>
+      Boolean(id && mongoose.Types.ObjectId.isValid(id)),
+    )
     .map((id) => new Types.ObjectId(id));
 
   if (!validIds.length) {
@@ -148,7 +150,9 @@ const getFavorites = async (userId: string) => {
   }
 
   // Filter out any favorites whose reference user has been deleted
-  const validFavorites = favorites.filter((fav: any) => Boolean(fav.referenceId));
+  const validFavorites = favorites.filter((fav: any) =>
+    Boolean(fav.referenceId),
+  );
 
   const enrichedFavorites = await Promise.all(
     validFavorites.map(async (fav: any) => {
@@ -331,4 +335,3 @@ export const FavoriteService = {
   getSingleFavorite,
   deleteFavorite,
 };
-

@@ -87,7 +87,8 @@ export const getBatchGoogleDistances = async (
               const miles = Math.round((meters / 1609.344) * 10) / 10;
               resultMap.set(dest.id, {
                 distanceInMiles: miles,
-                distanceFormatted: formatMilesDistance(miles) || `${miles} mi away`,
+                distanceFormatted:
+                  formatMilesDistance(miles) || `${miles} mi away`,
                 durationText: el.duration?.text,
                 source: "google_maps",
               });
@@ -101,7 +102,8 @@ export const getBatchGoogleDistances = async (
               );
               resultMap.set(dest.id, {
                 distanceInMiles: miles,
-                distanceFormatted: formatMilesDistance(miles) || `${miles} mi away`,
+                distanceFormatted:
+                  formatMilesDistance(miles) || `${miles} mi away`,
                 source: "haversine",
               });
             }
@@ -131,4 +133,3 @@ export const getBatchGoogleDistances = async (
 
   return resultMap;
 };
-

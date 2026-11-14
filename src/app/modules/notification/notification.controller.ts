@@ -61,8 +61,6 @@ const adminReadNotification = catchAsync(
   },
 );
 
-
-
 // user single get
 const getSingleNotification = catchAsync(async (req, res) => {
   const result = await NotificationService.getSingleNotificationFromDB(

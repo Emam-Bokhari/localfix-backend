@@ -10,4 +10,3 @@ const toggleFavoriteZodSchema = z.object({
 export const FavoriteValidation = {
   toggleFavoriteZodSchema,
 };
-

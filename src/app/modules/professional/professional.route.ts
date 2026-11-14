@@ -4,11 +4,7 @@ import { ProfessionalController } from "./professional.controller";
 
 const router = express.Router();
 
-router.get(
-  "/",
-  optionalAuth(),
-  ProfessionalController.getAllProfessionals,
-);
+router.get("/", optionalAuth(), ProfessionalController.getAllProfessionals);
 
 router.get(
   "/:professionalId",
@@ -17,4 +13,3 @@ router.get(
 );
 
 export const ProfessionalRoutes = router;
-

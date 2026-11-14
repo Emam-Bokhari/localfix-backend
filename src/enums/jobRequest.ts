@@ -11,4 +11,3 @@ export enum JOB_TIMEFRAME {
   WITHIN_A_FEW_DAYS = "Within a few days",
   FLEXIBLE = "Flexible",
 }
-

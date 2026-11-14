@@ -58,10 +58,7 @@ export const signUpBodyZodSchema = z
     // Professional Step 2: Trade & Area
     companyName: z.string().trim().optional(),
     businessName: z.string().trim().optional(),
-    category: z
-      .string()
-      .regex(objectIdRegex, "Invalid category ID")
-      .optional(),
+    category: z.string().regex(objectIdRegex, "Invalid category ID").optional(),
     serviceRadiusInMiles: z.union([z.number(), z.string()]).optional(),
 
     // Professional Step 3: Trade License & Liability Insurance
@@ -109,7 +106,8 @@ export const signUpBodyZodSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["agreedToTerms"],
-          message: "You must agree to the Terms & Conditions and Privacy Policy",
+          message:
+            "You must agree to the Terms & Conditions and Privacy Policy",
         });
       }
     }

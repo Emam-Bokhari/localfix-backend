@@ -11,4 +11,3 @@ export type ICategory = {
 };
 
 export type ICategoryModel = ISoftDeleteModel<ICategory>;
-

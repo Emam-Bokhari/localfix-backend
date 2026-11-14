@@ -26,4 +26,3 @@ router
   .get(SiteSettingsController.getSiteSettings);
 
 export const SiteSettingsRoutes = router;
-

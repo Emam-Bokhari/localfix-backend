@@ -169,12 +169,11 @@ const getMessagesFromDB = async (
   const response = await Message.find({ chatId })
     .populate({
       path: "sender",
-      select: "name role email profileImage companyName"
+      select: "name role email profileImage companyName",
     })
     .populate({
       path: "pinnedBy",
-      select:
-        "name role email profileImage companyName",
+      select: "name role email profileImage companyName",
     })
     .skip(skip)
     .limit(limitInt)
@@ -205,13 +204,11 @@ const getMessagesFromDB = async (
   })
     .populate({
       path: "sender",
-      select:
-        "name role email profileImage companyName",
+      select: "name role email profileImage companyName",
     })
     .populate({
       path: "pinnedBy",
-      select:
-        "name role email profileImage companyName",
+      select: "name role email profileImage companyName",
     })
     .sort({ pinnedAt: -1 });
 
@@ -366,7 +363,7 @@ const pinUnpinMessage = async (
         { new: true },
       );
 
-      // 
+      //
 
       // Remove from chat's pinnedMessages array
       await Chat.findByIdAndUpdate(message.chatId, {

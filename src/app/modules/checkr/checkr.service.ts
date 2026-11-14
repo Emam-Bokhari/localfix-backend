@@ -39,7 +39,11 @@ const ensureCheckrConfigured = () => {
 const splitFullName = (fullName: string) => {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) {
-    return { first_name: "Professional", last_name: "User", no_middle_name: true };
+    return {
+      first_name: "Professional",
+      last_name: "User",
+      no_middle_name: true,
+    };
   }
   if (parts.length === 1) {
     return { first_name: parts[0], last_name: parts[0], no_middle_name: true };
@@ -202,7 +206,9 @@ const initiateBackgroundCheckForUser = async (
       invitationUrl: user.backgroundCheck.checkrInvitationUrl || null,
       status: user.backgroundCheck.status,
       invitationStatus: user.backgroundCheck.invitationStatus,
-      package: user.backgroundCheck.checkrPackage || config.checkr.backgroundCheckPackage,
+      package:
+        user.backgroundCheck.checkrPackage ||
+        config.checkr.backgroundCheckPackage,
       alreadyVerified: true,
     };
   }
@@ -324,7 +330,9 @@ const startPreSignupScreening = async (payload: {
  */
 const mapReportToVerificationState = (reportObj: any) => {
   const rawStatus = (reportObj?.status || "").toLowerCase();
-  const rawResult = reportObj?.result ? String(reportObj.result).toLowerCase() : null;
+  const rawResult = reportObj?.result
+    ? String(reportObj.result).toLowerCase()
+    : null;
 
   let mappedStatus = CHECKR_VERIFICATION_STATUS.PENDING;
   let passed = false;
@@ -458,7 +466,10 @@ const processWebhookEvent = async (event: any) => {
     });
 
     if (!user) {
-      return { processed: false, reason: "User not found for invitation event" };
+      return {
+        processed: false,
+        reason: "User not found for invitation event",
+      };
     }
 
     let invitationStatus = CHECKR_INVITATION_STATUS.PENDING;
@@ -483,7 +494,8 @@ const processWebhookEvent = async (event: any) => {
       updateFields["backgroundCheck.checkrReportId"] = dataObj.report_id;
     }
     if (invitationStatus === CHECKR_INVITATION_STATUS.COMPLETED) {
-      updateFields["backgroundCheck.status"] = CHECKR_VERIFICATION_STATUS.PENDING;
+      updateFields["backgroundCheck.status"] =
+        CHECKR_VERIFICATION_STATUS.PENDING;
     }
 
     await User.findByIdAndUpdate(user._id, { $set: updateFields });
@@ -580,7 +592,11 @@ const processWebhookEvent = async (event: any) => {
       }
     }
 
-    return { processed: true, userId: user._id.toString(), status: mappedStatus };
+    return {
+      processed: true,
+      userId: user._id.toString(),
+      status: mappedStatus,
+    };
   }
 
   return { processed: false, reason: `Unhandled event type: ${eventType}` };

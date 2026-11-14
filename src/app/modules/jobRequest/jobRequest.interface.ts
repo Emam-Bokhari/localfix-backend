@@ -37,4 +37,3 @@ export type IJobRequest = {
 };
 
 export type IJobRequestModel = ISoftDeleteModel<IJobRequest>;
-

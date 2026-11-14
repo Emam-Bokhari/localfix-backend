@@ -41,4 +41,3 @@ export const Category = model<ICategory, ICategoryModel>(
   "Category",
   categorySchema,
 );
-

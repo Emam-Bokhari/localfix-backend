@@ -615,6 +615,249 @@ Please review the request and respond as soon as possible.
   };
 };
 
+interface IContactUsNotification {
+  to: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+const contactUsNotification = (values: IContactUsNotification) => {
+  const content = `
+<h2
+style="
+margin:0 0 18px;
+font-size:28px;
+font-weight:700;
+color:${COLORS.text};
+"
+>
+New Contact Us Message
+</h2>
+
+<p
+style="
+margin:0;
+font-size:15px;
+line-height:1.8;
+color:${COLORS.secondary};
+"
+>
+A new note/message has been submitted through the Contact Us form.
+The sender and message details are shown below.
+</p>
+
+<table
+width="100%"
+cellpadding="0"
+cellspacing="0"
+style="
+margin-top:32px;
+background:${COLORS.background};
+border:1px solid ${COLORS.border};
+border-radius:12px;
+"
+>
+
+<tr>
+
+<td style="padding:24px;">
+
+<table
+width="100%"
+cellpadding="0"
+cellspacing="0"
+>
+
+<tr>
+
+<td
+style="
+padding:10px 0;
+width:160px;
+font-weight:700;
+color:${COLORS.secondary};
+"
+>
+Full Name
+</td>
+
+<td
+style="
+padding:10px 0;
+color:${COLORS.text};
+"
+>
+${values.name}
+</td>
+
+</tr>
+
+<tr>
+
+<td
+style="
+padding:10px 0;
+font-weight:700;
+color:${COLORS.secondary};
+"
+>
+Email Address
+</td>
+
+<td
+style="
+padding:10px 0;
+color:${COLORS.text};
+"
+>
+${values.email}
+</td>
+
+</tr>
+
+<tr>
+
+<td
+style="
+padding:10px 0;
+font-weight:700;
+color:${COLORS.secondary};
+"
+>
+Subject
+</td>
+
+<td
+style="
+padding:10px 0;
+color:${COLORS.text};
+"
+>
+${values.subject}
+</td>
+
+</tr>
+
+</table>
+
+</td>
+
+</tr>
+
+</table>
+
+<h3
+style="
+margin:34px 0 14px;
+font-size:20px;
+font-weight:700;
+color:${COLORS.text};
+"
+>
+Message
+</h3>
+
+<div
+style="
+background:${COLORS.background};
+border:1px solid ${COLORS.border};
+border-left:5px solid ${COLORS.primary};
+border-radius:12px;
+padding:24px;
+font-size:15px;
+line-height:1.9;
+color:${COLORS.text};
+white-space:pre-wrap;
+word-break:break-word;
+"
+>
+${values.message}
+</div>
+
+<table
+width="100%"
+cellpadding="0"
+cellspacing="0"
+style="margin-top:38px;"
+>
+
+<tr>
+
+<td align="center">
+
+<a
+href="mailto:${values.email}?subject=Re:${encodeURIComponent(values.subject)}"
+style="
+display:inline-block;
+padding:16px 36px;
+background:${COLORS.primary};
+color:#FFFFFF;
+text-decoration:none;
+border-radius:10px;
+font-size:15px;
+font-weight:700;
+"
+>
+Reply to ${values.name}
+</a>
+
+</td>
+
+</tr>
+
+</table>
+
+<table
+width="100%"
+cellpadding="0"
+cellspacing="0"
+style="
+margin-top:36px;
+background:${COLORS.background};
+border:1px solid ${COLORS.border};
+border-radius:12px;
+"
+>
+
+<tr>
+
+<td
+style="
+padding:20px 22px;
+font-size:14px;
+line-height:1.8;
+color:${COLORS.secondary};
+"
+>
+
+<b style="color:${COLORS.text};">
+Internal Notification
+</b>
+
+<br><br>
+
+This email was automatically generated after a visitor or user submitted a message through the Contact Us form.
+
+<br><br>
+
+Please reply promptly to the sender's email.
+
+</td>
+
+</tr>
+
+</table>
+`;
+
+  return {
+    to: values.to,
+    subject: `Contact Us: ${values.subject}`,
+    html: baseLayout("Contact Us", content),
+  };
+};
+
 const genericNotification = (values: {
   to: string;
   subject: string;
@@ -929,6 +1172,7 @@ export const emailTemplate = {
   createAccount,
   resetPassword,
   supportNotification,
+  contactUsNotification,
   genericNotification,
   tenantInvitation,
   contractorInvitation,

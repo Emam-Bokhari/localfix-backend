@@ -49,4 +49,3 @@ export const ServiceValidation = {
   createServiceZodSchema,
   updateServiceZodSchema,
 };
-

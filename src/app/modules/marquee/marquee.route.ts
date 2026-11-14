@@ -35,4 +35,3 @@ router
   .delete(isAdmin, MarqueeController.deleteMarquee);
 
 export const MarqueeRoutes = router;
-

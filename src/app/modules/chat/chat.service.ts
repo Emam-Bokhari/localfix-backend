@@ -103,10 +103,7 @@ const markChatAsRead = async (userId: string, chatId: string) => {
   return result;
 };
 
-const enrichChatsWithUnreadCount = async (
-  rawChats: any[],
-  userId: string,
-) => {
+const enrichChatsWithUnreadCount = async (rawChats: any[], userId: string) => {
   const userObjectId = new mongoose.Types.ObjectId(userId);
 
   return Promise.all(

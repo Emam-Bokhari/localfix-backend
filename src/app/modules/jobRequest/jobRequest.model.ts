@@ -149,4 +149,3 @@ export const JobRequest = model<IJobRequest, IJobRequestModel>(
   "JobRequest",
   jobRequestSchema,
 );
-

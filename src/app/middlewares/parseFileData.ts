@@ -295,7 +295,7 @@ export const parseFileData = (...fields: FieldInput[]) => {
           fieldName === "documents" ||
           fieldName === "inspectionPhotos" ||
           fieldName === "itemPhotos" ||
-    fieldName === "projectPhotos" ||
+          fieldName === "projectPhotos" ||
           mode === "multiple"
         ) {
           if (typeof parsedBody[fieldName] === "string") {

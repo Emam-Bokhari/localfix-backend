@@ -86,10 +86,7 @@ const getCategoryByIdFromDB = async (id: string, userRole?: string) => {
   return category;
 };
 
-const updateCategoryToDB = async (
-  id: string,
-  payload: Partial<ICategory>,
-) => {
+const updateCategoryToDB = async (id: string, payload: Partial<ICategory>) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     cleanupFiles(payload);
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid category ID");
@@ -150,4 +147,3 @@ export const CategoryService = {
   updateCategoryToDB,
   deleteCategoryFromDB,
 };
-

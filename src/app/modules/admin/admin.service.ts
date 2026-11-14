@@ -228,7 +228,11 @@ const getUserGrowthFromDB = async (
     {
       $match: {
         role: {
-          $in: [USER_ROLES.HOME_OWNER, USER_ROLES.PROFESSIONAL, USER_ROLES.PROFESSIONAL],
+          $in: [
+            USER_ROLES.HOME_OWNER,
+            USER_ROLES.PROFESSIONAL,
+            USER_ROLES.PROFESSIONAL,
+          ],
         },
         isDeleted: { $ne: true },
         createdAt: { $lt: startOfYear },
@@ -249,7 +253,8 @@ const getUserGrowthFromDB = async (
   for (const item of baselineUsers) {
     if (item._id === USER_ROLES.HOME_OWNER) cumulativeLandlords = item.count;
     if (item._id === USER_ROLES.PROFESSIONAL) cumulativeTenants = item.count;
-    if (item._id === USER_ROLES.PROFESSIONAL) cumulativeContractors = item.count;
+    if (item._id === USER_ROLES.PROFESSIONAL)
+      cumulativeContractors = item.count;
   }
 
   // 2. New registrations during the target year grouped by role and month
@@ -257,7 +262,11 @@ const getUserGrowthFromDB = async (
     {
       $match: {
         role: {
-          $in: [USER_ROLES.HOME_OWNER, USER_ROLES.PROFESSIONAL, USER_ROLES.PROFESSIONAL],
+          $in: [
+            USER_ROLES.HOME_OWNER,
+            USER_ROLES.PROFESSIONAL,
+            USER_ROLES.PROFESSIONAL,
+          ],
         },
         isDeleted: { $ne: true },
         createdAt: { $gte: startOfYear, $lte: endOfYear },
@@ -651,8 +660,7 @@ const getTransactionStatsFromDB = async (
   }
   const payingLandlords = payingLandlordsSet.size;
 
-  const currency =
-    allTransactions[0]?.currency || getCurrencyCodeUpper();
+  const currency = allTransactions[0]?.currency || getCurrencyCodeUpper();
   const currencySymbol =
     allTransactions[0]?.currencySymbol || getCurrencySymbol(currency);
 
@@ -910,9 +918,15 @@ const getLandlordByIdFromDB = async (
   };
 };
 
-const getLandlordPropertiesFromDB = async (_userId: string): Promise<IAdminPropertyItem[]> => [];
-const getLandlordTenantsFromDB = async (_userId: string): Promise<IAdminTenantItem[]> => [];
-const getLandlordContractorsFromDB = async (_userId: string): Promise<IAdminContractorItem[]> => [];
+const getLandlordPropertiesFromDB = async (
+  _userId: string,
+): Promise<IAdminPropertyItem[]> => [];
+const getLandlordTenantsFromDB = async (
+  _userId: string,
+): Promise<IAdminTenantItem[]> => [];
+const getLandlordContractorsFromDB = async (
+  _userId: string,
+): Promise<IAdminContractorItem[]> => [];
 
 const getLandlordFullDetailsFromDB = async (
   userId: string,

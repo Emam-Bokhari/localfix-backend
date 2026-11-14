@@ -5,7 +5,7 @@ import { RuleRoutes } from "../modules/rule/rule.route";
 import { FaqRoutes } from "../modules/faq/faq.route";
 import { ChatRoutes } from "../modules/chat/chat.routes";
 import { MessageRoutes } from "../modules/message/message.routes";
-import { SupportRoutes } from "../modules/support/support.route";
+import { ContactUsRoutes } from "../modules/contactUs/contactUs.route";
 import { BannerRoutes } from "../modules/banner/banner.route";
 import { NotificationRoutes } from "../modules/notification/notification.routes";
 import { FcmTokenRoutes } from "../modules/fcmToken/fcmToken.route";
@@ -51,8 +51,8 @@ const apiRoutes = [
     route: MessageRoutes,
   },
   {
-    path: "/supports",
-    route: SupportRoutes,
+    path: "/contact",
+    route: ContactUsRoutes,
   },
   {
     path: "/banners",

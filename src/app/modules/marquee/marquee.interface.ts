@@ -14,4 +14,3 @@ export type TMarqueeSetting = {
 };
 
 export type MarqueeSettingModel = Model<TMarqueeSetting>;
-

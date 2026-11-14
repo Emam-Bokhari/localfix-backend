@@ -182,15 +182,13 @@ const updateProfileToDB = async (
       coordinates: [0, 0] as [number, number],
       address: "",
     };
-    const nextAddress =
-      incomingStreetAddress ?? existingLocation.address ?? "";
+    const nextAddress = incomingStreetAddress ?? existingLocation.address ?? "";
     if (incomingStreetAddress !== undefined) {
       updatePayload.streetAddress = incomingStreetAddress;
     }
     updatePayload.location = {
       type: updatePayload.location?.type || existingLocation.type || "Point",
-      coordinates:
-        updatePayload.location?.coordinates ||
+      coordinates: updatePayload.location?.coordinates ||
         existingLocation.coordinates || [0, 0],
       address: nextAddress,
     };
@@ -496,7 +494,10 @@ const addProjectPhotoToDB = async (
 
   const imageUrl = (payload.projectPhoto || payload.image || "").trim();
   if (!imageUrl) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Project photo image is required");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Project photo image is required",
+    );
   }
 
   await validateCategoryExists(payload.category.toString());
@@ -535,7 +536,8 @@ const updateProjectPhotoToDB = async (
     );
   }
 
-  const photo = (user.projectPhotos as any)?.id?.(photoId) ||
+  const photo =
+    (user.projectPhotos as any)?.id?.(photoId) ||
     user.projectPhotos?.find((p) => p._id?.toString() === photoId);
 
   if (!photo) {

@@ -6,4 +6,3 @@ export interface IFavorite extends Document {
   createdAt?: Date;
   updatedAt?: Date;
 }
-

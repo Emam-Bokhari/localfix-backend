@@ -28,7 +28,8 @@ const createMarqueeToDB = async (payload: Partial<TMarquee>) => {
   let order = payload.order;
   if (order === undefined) {
     const lastItem = await Marquee.findOne().sort({ order: -1 }).lean();
-    order = lastItem && typeof lastItem.order === "number" ? lastItem.order + 1 : 1;
+    order =
+      lastItem && typeof lastItem.order === "number" ? lastItem.order + 1 : 1;
   }
 
   const marquee = await Marquee.create({
@@ -104,7 +105,7 @@ const updateMarqueeToDB = async (id: string, payload: Partial<TMarquee>) => {
         "Service keyword already exists in marquee",
       );
     }
-    
+
     updateData.keyword = trimmedKeyword;
   }
 
@@ -157,8 +158,7 @@ const toggleMarqueeStatusToDB = async (isEnabled?: boolean) => {
     return setting;
   }
 
-  setting.isEnabled =
-    isEnabled !== undefined ? isEnabled : !setting.isEnabled;
+  setting.isEnabled = isEnabled !== undefined ? isEnabled : !setting.isEnabled;
   await setting.save();
 
   return setting;
@@ -173,4 +173,3 @@ export const MarqueeService = {
   getMarqueeStatusFromDB,
   toggleMarqueeStatusToDB,
 };
-

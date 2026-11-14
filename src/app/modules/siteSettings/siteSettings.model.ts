@@ -58,4 +58,3 @@ export const SiteSettings = model<TSiteSettings, SiteSettingsModel>(
   "SiteSettings",
   siteSettingsSchema,
 );
-

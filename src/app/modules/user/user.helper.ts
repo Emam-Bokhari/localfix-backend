@@ -51,12 +51,7 @@ export const normalizeTradeLicense = (
     payload.licenseNumber ||
     ""
   ).trim();
-  const state = (
-    nested.state ||
-    payload.licenseState ||
-    payload.state ||
-    ""
-  )
+  const state = (nested.state || payload.licenseState || payload.state || "")
     .trim()
     .toUpperCase();
   const certificateUrl =
@@ -198,4 +193,3 @@ export const validateCategoryExists = async (categoryId: string) => {
 
   return category;
 };
-

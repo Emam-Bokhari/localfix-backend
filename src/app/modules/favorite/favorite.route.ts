@@ -46,4 +46,3 @@ router.delete(
 );
 
 export const FavoriteRoutes = router;
-

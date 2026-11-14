@@ -29,11 +29,17 @@ const createReviewIntoDB = async (
     throw new ApiError(StatusCodes.UNAUTHORIZED, "User not authenticated");
   }
 
-  if (!payload.contractor || !mongoose.Types.ObjectId.isValid(payload.contractor)) {
+  if (
+    !payload.contractor ||
+    !mongoose.Types.ObjectId.isValid(payload.contractor)
+  ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid professional ID");
   }
 
-  if (!payload.maintenance || !mongoose.Types.ObjectId.isValid(payload.maintenance)) {
+  if (
+    !payload.maintenance ||
+    !mongoose.Types.ObjectId.isValid(payload.maintenance)
+  ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid job ID");
   }
 

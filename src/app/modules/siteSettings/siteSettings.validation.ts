@@ -21,13 +21,27 @@ const upsertSiteSettingsValidationSchema = z.object({
       .min(1, "Support phone cannot be empty")
       .optional(),
     address: z.string().trim().min(1, "Address cannot be empty").optional(),
-    facebookUrl: z.string().trim().url("Invalid Facebook URL").optional().or(z.literal("")),
-    instagramUrl: z.string().trim().url("Invalid Instagram URL").optional().or(z.literal("")),
-    linkedinUrl: z.string().trim().url("Invalid LinkedIn URL").optional().or(z.literal("")),
+    facebookUrl: z
+      .string()
+      .trim()
+      .url("Invalid Facebook URL")
+      .optional()
+      .or(z.literal("")),
+    instagramUrl: z
+      .string()
+      .trim()
+      .url("Invalid Instagram URL")
+      .optional()
+      .or(z.literal("")),
+    linkedinUrl: z
+      .string()
+      .trim()
+      .url("Invalid LinkedIn URL")
+      .optional()
+      .or(z.literal("")),
   }),
 });
 
 export const SiteSettingsZodValidation = {
   upsertSiteSettingsValidationSchema,
 };
-

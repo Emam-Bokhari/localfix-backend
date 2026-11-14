@@ -37,4 +37,3 @@ router
   .delete(isHomeOwner, JobRequestController.deleteJobRequest);
 
 export const JobRequestRoutes = router;
-

@@ -13,7 +13,10 @@ export const normalizeFaqRole = (
   role?: unknown,
 ): TFaqRole | string | undefined => {
   if (!role || typeof role !== "string") return undefined;
-  const cleaned = role.toLowerCase().trim().replace(/[\s-]+/g, "_");
+  const cleaned = role
+    .toLowerCase()
+    .trim()
+    .replace(/[\s-]+/g, "_");
   if (
     cleaned === "home_owner" ||
     cleaned === "homeowner" ||

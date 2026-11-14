@@ -53,4 +53,3 @@ export const MarqueeSetting = model<TMarqueeSetting, MarqueeSettingModel>(
   "MarqueeSetting",
   marqueeSettingSchema,
 );
-

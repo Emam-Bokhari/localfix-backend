@@ -19,7 +19,8 @@ const createFaqToDB = async (payload: Partial<TFaq>) => {
   let order = payload.order;
   if (order === undefined) {
     const lastFaq = await Faq.findOne({ role }).sort({ order: -1 }).lean();
-    order = lastFaq && typeof lastFaq.order === "number" ? lastFaq.order + 1 : 1;
+    order =
+      lastFaq && typeof lastFaq.order === "number" ? lastFaq.order + 1 : 1;
   }
 
   const faq = await Faq.create({

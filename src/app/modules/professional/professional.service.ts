@@ -129,10 +129,7 @@ type TPopulatedCategory = {
 };
 
 const buildCategoryTabs = (items: Array<{ category?: unknown }>) => {
-  const categoryMap = new Map<
-    string,
-    TPopulatedCategory & { count: number }
-  >();
+  const categoryMap = new Map<string, TPopulatedCategory & { count: number }>();
 
   for (const item of items) {
     const cat = item.category as TPopulatedCategory | null | undefined;
@@ -814,4 +811,3 @@ export const ProfessionalService = {
   getAllProfessionalsFromDB,
   getProfessionalDetailsFromDB,
 };
-

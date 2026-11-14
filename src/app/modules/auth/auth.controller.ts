@@ -120,8 +120,16 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
 
 // google login
 const googleLogin = catchAsync(async (req: Request, res: Response) => {
-  const { token, deviceToken, fcmToken, deviceId, deviceType, role, zipCode, phone } =
-    req.body;
+  const {
+    token,
+    deviceToken,
+    fcmToken,
+    deviceId,
+    deviceType,
+    role,
+    zipCode,
+    phone,
+  } = req.body;
 
   const result = await AuthService.googleLoginService({
     token,
