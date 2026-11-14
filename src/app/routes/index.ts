@@ -22,6 +22,7 @@ import { ServiceRoutes } from "../modules/service/service.route";
 import { ProfessionalRoutes } from "../modules/professional/professional.route";
 import { JobRequestRoutes } from "../modules/jobRequest/jobRequest.route";
 import { FavoriteRoutes } from "../modules/favorite/favorite.route";
+import { SupportTicketRoutes } from "../modules/supportTicket/supportTicket.route";
 
 const router = express.Router();
 
@@ -121,6 +122,10 @@ const apiRoutes = [
   {
     path: "/favorites",
     route: FavoriteRoutes,
+  },
+  {
+    path: "/support-tickets",
+    route: SupportTicketRoutes,
   },
 ];
 
