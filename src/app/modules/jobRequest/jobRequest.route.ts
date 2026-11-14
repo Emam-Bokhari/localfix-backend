@@ -24,13 +24,13 @@ router.get(
   JobRequestController.getMarketplaceLeads,
 );
 
-router.get(
+router.get( 
   "/marketplace-leads/:id",
   isProfessional,
   JobRequestController.getSingleMarketplaceLead,
 );
 
-router.post(
+router.delete(
   "/marketplace-leads/:id/reject",
   isProfessional,
   JobRequestController.rejectMarketplaceLead,
